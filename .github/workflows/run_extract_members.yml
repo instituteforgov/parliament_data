@@ -1,0 +1,31 @@
+---
+name: Run extract_members.py on a schedule
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron:  '0 6 * * *'
+
+jobs:
+  extract:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      # - name: Install requirements
+      #   run: pip install -r requirements.txt
+      # - name: Run script
+      #   run: python github_actions_test.py
+      # - name: Commit and push if the data has changed
+      #   run: |-
+      #     git config user.name "Automated"
+      #     git config user.email "actions@users.noreply.github.com"
+      #     git add -A
+      #     timestamp=$(date -u)
+      #     git commit -m "Latest data: ${timestamp}" || exit 0
+      #     git push
+...
