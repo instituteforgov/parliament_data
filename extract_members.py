@@ -35,7 +35,7 @@ with open('config.yaml', 'r') as f:
 members = []
 
 # %%
-# Make initial API query, to get total number of results
+# Pull data from API
 i = 0
 members_search_results = queryMembersSearchAPI(i, headers=config['headers'])
 
@@ -48,8 +48,7 @@ for i in range(0, math.ceil(members_search_results['totalResults'] / 20)):
     if members_search_results:
         members += extractMembers(members_search_results)
 
-# Turn list into dfs
-# df_membersstatuscodes = pd.DataFrame(membersstatuscodes, )
+# Turn list into df
 df_members = pd.DataFrame(members, )
 
 # %%

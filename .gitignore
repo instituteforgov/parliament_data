@@ -2,5 +2,6 @@
 /.pytest_cache
 /env_pn
 /logs
+/temp
 
 temp*.py
