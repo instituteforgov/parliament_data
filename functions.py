@@ -6,7 +6,7 @@ from typing import Literal, Optional
 
 import requests
 
-import log_operations as lo
+import utils.log_operations as lo
 
 
 def queryMembersSearchAPI(
