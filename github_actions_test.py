@@ -15,11 +15,12 @@
         None
 '''
 
+import json
 import math
 
 import yaml
 
-from functions import queryMembersSearchAPI
+from functions import queryMembersSearchAPI, extractMembers
 
 
 # %%
@@ -35,9 +36,30 @@ members = []
 # %%
 # Pull data from API
 i = 0
-members_search_results = queryMembersSearchAPI(i, headers=config['headers'])
+members_search_results = queryMembersSearchAPI(
+    i,
+    headers=config['headers'],
+    house=1,
+    current_members=True,
+    save_logs=False
+)
 
 for i in range(0, math.ceil(members_search_results['totalResults'] / 20)):
 
     # Query Members Search API
-    members += queryMembersSearchAPI(i * 20, headers=config['headers'])
+    members_search_results += queryMembersSearchAPI(
+        i * 20,
+        headers=config['headers'],
+        house=1,
+        current_members=True,
+        save_logs=False
+    )
+
+    # Extract member details from a page of results
+    if members_search_results:
+        members += extractMembers(members_search_results)
+
+# %%
+# Save output
+with open('data/current_mps.json', 'w') as f:
+    json.dump(members, f)
