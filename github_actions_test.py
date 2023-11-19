@@ -47,7 +47,7 @@ members_search_results = queryMembersSearchAPI(
 for i in range(0, math.ceil(members_search_results['totalResults'] / 20)):
 
     # Query Members Search API
-    members_search_results += queryMembersSearchAPI(
+    members_search_results = queryMembersSearchAPI(
         i * 20,
         headers=config['headers'],
         house=1,
