@@ -10,20 +10,21 @@ import utils.log_operations as lo
 
 
 def queryMembersSearchAPI(
-    starting_number,
-    headers,
-    house=None,
-    current_members=True,
-    save_logs=True
-):
+    starting_number: int,
+    headers: dict,
+    house: Literal[1, 2, None] = None,
+    current_members: Literal[True, False, None] = True,
+    save_logs: bool = True
+) -> Optional[dict]:
     '''
     Requests details from the Members Search Parliament API
 
         Parameters:
             - starting_number (int): Starting result number
             - headers (str): Headers to use in the request
-            - house (int): House to search (1 = Commons, 2 = Lords)
-            - current_members (bool): Whether to return current members only
+            - house (int): House to search (1 = Commons, 2 = Lords, None = both)
+            - current_members (bool): Whether to return current members, former
+            members or both (True = current, False = former, None = both)
             - save_logs (bool): Whether to save logs to file
 
         Returns:
@@ -31,15 +32,18 @@ def queryMembersSearchAPI(
             else None
 
         Notes:
+            - House is an optional argument for the Members Search API,
+            unlike for the State of the Parties API
+            - Passing any values other than 1 or 2 as the House parameter,
+            and any values other than True or False as the IsCurrentMember parameter,
+            is equivalent to not passing a value for that parameter
             - 20 is the maximum number of results that can be pulled
             per query
     '''
-    if house is None:
-        raise ValueError('House must be specified')
-    elif not isinstance(house, int):
-        raise TypeError('House must be an integer')
-    elif house not in [1, 2]:
-        raise ValueError('House must be 1 (Commons) or 2 (Lords)')
+    if house not in [1, 2, None]:
+        raise ValueError('House must be 1 (Commons), 2 (Lords) or None (both)')
+    if current_members not in [True, False, None]:
+        raise ValueError('current_members must be True (current), False (former) or None (both)')
 
     url = (
         'https://members-api.parliament.uk/api/Members/Search?' +
@@ -67,7 +71,9 @@ def queryMembersSearchAPI(
         return
 
 
-def extractMembers(json):
+def extractMembers(
+    json: dict
+) -> list:
     '''
     Extracts member details from json returned from the
     Members Search Parliament API
@@ -138,7 +144,8 @@ def queryStateOfTheParties(
             else None
 
         Notes:
-            None
+            - house is a required argument for the State of the Parties API,
+            unlike for the Members Search API
     '''
     if house is None:
         raise ValueError('House must be specified')
