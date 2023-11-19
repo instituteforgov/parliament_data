@@ -21,7 +21,7 @@ import pandas as pd
 import yaml
 
 from functions import queryMembersSearchAPI, extractMembers
-import string_operations as so
+from utils import string_operations as so
 
 
 # %%
