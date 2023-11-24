@@ -8,7 +8,7 @@
     Inputs
         API: Parliament Members Search API
     Outputs
-        - txt: logs/members_search_status_codes.txt
+        - json: data/current_mps.json
     Parameters
         None
     Notes
@@ -30,7 +30,7 @@ with open('config.yaml', 'r') as f:
 
 # %%
 # QUERY MEMBERS SEARCH API AND EXTRACT DATA TO DF
-# Create empty lists that will hold member details and API status codes
+# Create empty lists that will hold member details
 members = []
 
 # %%
