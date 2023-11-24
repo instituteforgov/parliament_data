@@ -71,9 +71,7 @@ def queryMembersSearchAPI(
         return
 
 
-def extractMembers(
-    json: dict
-) -> list:
+def extractMembers(json: dict) -> list:
     '''
     Extracts member details from json returned from the
     Members Search Parliament API
@@ -122,6 +120,251 @@ def extractMembers(
         members.append(dict)
 
     return members
+
+
+def queryMembersHistoryAPI(
+    member_id: int,
+    headers: dict,
+    save_logs: bool = True
+) -> Optional[dict]:
+    '''
+    Requests details from the Members History Parliament API
+
+        Parameters:
+            - member_id (int): Member id number
+            - headers (str): Headers to use in the request
+            - save_logs (bool): Whether to save logs to file
+
+        Returns:
+            - r (str): API results in JSON form if status code is 200,
+            else None
+
+        Notes:
+            None
+    '''
+    if not isinstance(member_id, int):
+        raise TypeError('Member ID must be an integer')
+
+    url = (
+        'https://members-api.parliament.uk/api/Members/History?ids=' +
+        str(member_id)
+    )
+
+    r = requests.get(
+        url,
+        headers=headers
+    )
+
+    if save_logs:
+        lo.log_details(
+            logs_folder_path='logs',
+            logs_file_name='members_search_history_status_codes.txt',
+            message='Status code ' + str(r.status_code) + ' for url ' + url
+        )
+
+    if r.status_code == 200:
+        r = r.json()
+        return r
+    else:
+        return
+
+
+def extractMembersHistory(json: dict) -> list:
+    '''
+    Extracts member details from json returned from the
+    Members History Parliament API, adding details to
+    list_namehistory, list_partyhistory, list_housemembershiphistory
+
+        Parameters:
+            - json (str): API results in JSON form
+
+        Returns:
+            - name_histories (list): List of dicts containing name history details
+            - party_histories (list): List of dicts containing party history details
+            - house_membership_histories (list): List of dicts containing house membership
+            history details
+
+        Notes:
+            None
+    '''
+
+    name_histories = []
+    party_histories = []
+    house_membership_histories = []
+
+    for member in json:
+        id = member['value']['id']
+
+        # Extract details from nameHistory list
+        # NB: 'nameDisplayAs' is the best option, though for older records
+        # it does include titles
+        for record in member['value']['nameHistory']:
+            dict = {}
+            dict.update({
+                'id': id,
+                'startDate': record['startDate'],
+                'endDate': record['endDate'],
+                'nameDisplayAs': record['nameDisplayAs'],
+            })
+            name_histories.append(dict)
+
+        # Extract details from partyHistory list
+        for record in member['value']['partyHistory']:
+            dict = {}
+            dict.update({
+                'id': id,
+                'startDate': record['startDate'],
+                'endDate': record['endDate'],
+                'party': record['party']['name'],
+            })
+            party_histories.append(dict)
+
+        # Extract details from houseMembershipHistory list
+        for record in member['value']['houseMembershipHistory']:
+            dict = {}
+            dict.update({
+                'id': id,
+                'startDate': record['membershipStartDate'],
+                'endDate': record['membershipEndDate'],
+                'membershipFrom': record['membershipFrom'],
+                'membershipFromID': record['membershipFromId'],
+                'house': record['house'],
+            })
+            house_membership_histories.append(dict)
+
+    return name_histories, party_histories, house_membership_histories
+
+
+def queryConstituencySearchAPI(
+    starting_number: int,
+    headers: dict,
+    save_logs: bool = True
+) -> Optional[dict]:
+    '''
+    Requests details from the Constituency Search Parliament API
+
+        Parameters:
+            - starting_number (int): Starting result number
+            - headers (str): Headers to use in the request
+            - save_logs (bool): Whether to save logs to file
+
+        Returns:
+            - r (str): API results in JSON form if status code is 200,
+            else None
+
+        Notes:
+            - 20 is the maximum number of results that can be pulled
+            per query
+            - This only returns current constituencies. Parliament APIs
+            will return details on historic constituencies, but these
+            aren't available via this endpoint
+    '''
+    if not isinstance(starting_number, int):
+        raise TypeError('Starting number must be an integer')
+
+    url = (
+        'https://members-api.parliament.uk/api/Location/Constituencies?' +
+        'skip=' + str(starting_number) + '&take=20'
+    )
+
+    r = requests.get(
+        url,
+        headers=headers
+    )
+
+    if save_logs:
+        lo.log_details(
+            logs_folder_path='logs',
+            logs_file_name='constituency_search_status_codes.txt',
+            message='Status code ' + str(r.status_code) + ' for url ' + url
+        )
+
+    if r.status_code == 200:
+        r = r.json()
+        return r
+    else:
+        return
+
+
+def queryConstituencyAPI(
+    constituency_id: int,
+    headers: dict,
+    save_logs: bool = True
+) -> Optional[dict]:
+    '''
+    Requests details from the Constituency Parliament API
+
+        Parameters:
+            - constituency_id (int): Constituency id number
+            - headers (str): Headers to use in the request
+            - save_logs (bool): Whether to save logs to file
+
+        Returns:
+            - r (str): API results in JSON form if status code is 200,
+            else None
+
+        Notes:
+            - 20 is the maximum number of results that can be pulled
+            per query
+            - This only returns current constituencies. Parliament APIs
+            will return details on historic constituencies, but these
+            aren't available via this endpoint
+    '''
+    if not isinstance(constituency_id, int):
+        raise TypeError('Constituency ID must be an integer')
+
+    url = (
+        'https://members-api.parliament.uk/api/Location/' +
+        'Constituency/' + str(constituency_id)
+    )
+
+    r = requests.get(
+        url,
+        headers=headers
+    )
+
+    if save_logs:
+        lo.log_details(
+            logs_folder_path='logs',
+            logs_file_name='constituency_status_codes.txt',
+            message='Status code ' + str(r.status_code) + ' for url ' + url
+        )
+
+    if r.status_code == 200:
+        r = r.json()
+        return r
+    else:
+        return
+
+
+def extractConstituency(json: dict) -> list:
+    '''
+    Extracts constituency details from json returned from either
+    the Constituency Parliament API or the Constituency Search
+    Parliament API
+
+        Parameters:
+            - json (str): API results in JSON form
+
+        Returns:
+            - constituencies (list): List of dicts containing constituency details
+
+        Notes:
+            None
+    '''
+
+    constituencies = []
+
+    dict = {}
+    dict.update({
+        'id': json['value']['id'],
+        'name': json['value']['name'],
+        'startDate': json['value']['startDate'],
+        'endDate': json['value']['endDate'],
+    })
+    constituencies.append(dict)
+
+    return constituencies
 
 
 def queryStateOfTheParties(
