@@ -6,6 +6,10 @@ on:
   schedule:
     - cron:  '0 6 * * *'
 
+defaults:
+  run:
+    shell: cmd
+
 jobs:
   extract:
     runs-on: windows-latest
