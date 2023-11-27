@@ -227,3 +227,19 @@ df_party_histories = pd.concat(
 )
 
 # %%
+# COLLAPSE NAME HISTORIES
+# Collapse name history records taking earliest startDate and latest endDate
+# for a given id and nameClean
+# NB: These arise where a. another form of someone's name (e.g. nameAddressAs) has changed
+# in the parliament even where nameDisplayAs hasn't, b. where our cleaning of names
+# has created additional redundant records
+# NB: mask() replaces values with NaT where one value is NaT in that column for that ID - needed
+# as max() otherwise favours known dates over missing dates, where missing dates indicate
+# something is ongoing
+# Ref: https://stackoverflow.com/a/15705630/785811
+df_name_histories_collapsed = df_name_histories.groupby(['id', 'nameClean']).agg({
+    'startDate': 'min',
+    'endDate': 'max'
+}).mask(
+    df_name_histories[['startDate', 'endDate']].isna().groupby(df_name_histories['id']).max()
+).reset_index()
