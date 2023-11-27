@@ -109,3 +109,121 @@ df_house_membership_histories['endDate'] = pd.to_datetime(
     df_house_membership_histories['endDate']
 )
 
+# %%
+# FIX CONSISTENCY OF RECORD STRUCTURE
+# 1. Set party history and membership history end dates to election date rather
+# than start of pre-election period for elections since 2015
+# NB: This makes May 2015-onwards data consistent with data before this point
+preelection_period_to_election_date = {
+    pd.to_datetime('2015-03-30T00:00:00'): pd.to_datetime('2015-05-07T00:00:00'),
+    pd.to_datetime('2017-05-03T00:00:00'): pd.to_datetime('2017-06-08T00:00:00'),
+    pd.to_datetime('2019-11-06T00:00:00'): pd.to_datetime('2019-12-12T00:00:00')
+}
+
+df_party_histories['endDate'] = df_party_histories['endDate'].map(
+    lambda x: preelection_period_to_election_date.get(x, x)
+)
+df_house_membership_histories['endDate'] = df_house_membership_histories['endDate'].map(
+    lambda x: preelection_period_to_election_date.get(x, x)
+)
+
+# %%
+# 2. Break MPs' pre-2015 party history records into multiple records where they span
+# multiple parliaments
+# NB: This makes pre-2015 data consistent with data from 2015 onwards
+
+# Identify first house membership history record where someone is in the Lords
+df_lords_membership_start_dates = df_house_membership_histories.loc[
+    df_house_membership_histories['house'] == 2
+].groupby('id').agg({
+    'startDate': 'min'
+}).reset_index()
+
+# Add house to party history records
+df_party_histories['house'] = df_party_histories.merge(
+    df_lords_membership_start_dates, on='id', how='left'
+).apply(
+    lambda x: 2 if x['startDate_x'] >= x['startDate_y'] else 1,
+    axis=1
+)
+
+# Create dataframe of pre-2015, MP party history records
+df_party_histories_mps_pre2015 = df_party_histories.loc[
+    (df_party_histories['endDate'] <= pd.to_datetime('2015-05-07T00:00:00')) &
+    (df_party_histories['house'] == 1)
+].copy()
+
+# Create date_range for each record
+# NB: Stopping before endDate so that in the subsequent steps we don't add a record
+# for the period beginning when the MP left the Commons
+df_party_histories_mps_pre2015.loc[
+    :, 'date_range'
+] = df_party_histories_mps_pre2015.apply(
+    lambda x:
+        pd.date_range(
+            start=x['startDate'],
+            end=x['endDate'] - pd.Timedelta(1, unit='D'),
+            freq='D'
+        ).tolist(),
+    axis=1
+)
+
+# Delete items in date_range that are not either the first item or an election date
+pre2015_election_dates = [
+    pd.to_datetime('1959-10-08T00:00:00'),
+    pd.to_datetime('1964-10-15T00:00:00'),
+    pd.to_datetime('1966-03-31T00:00:00'),
+    pd.to_datetime('1970-06-18T00:00:00'),
+    pd.to_datetime('1974-02-28T00:00:00'),
+    pd.to_datetime('1974-10-10T00:00:00'),
+    pd.to_datetime('1979-05-03T00:00:00'),
+    pd.to_datetime('1983-06-09T00:00:00'),
+    pd.to_datetime('1987-06-11T00:00:00'),
+    pd.to_datetime('1992-04-09T00:00:00'),
+    pd.to_datetime('1997-05-01T00:00:00'),
+    pd.to_datetime('2001-06-07T00:00:00'),
+    pd.to_datetime('2005-05-05T00:00:00'),
+    pd.to_datetime('2010-05-06T00:00:00'),
+]
+
+df_party_histories_mps_pre2015.loc[
+    :, 'date_range'
+] = df_party_histories_mps_pre2015.apply(
+    lambda x:
+        [
+            y for y in x['date_range']
+            if y == x['date_range'][0] or y in pre2015_election_dates
+        ],
+    axis=1
+)
+
+# Explode date_range and rename as startDate
+df_party_histories_mps_pre2015 = df_party_histories_mps_pre2015.explode('date_range')
+df_party_histories_mps_pre2015['startDate'] = df_party_histories_mps_pre2015['date_range']
+df_party_histories_mps_pre2015.drop(columns=['date_range'], inplace=True)
+
+# Set endDate as the first date from pre2015_election_dates after startDate, or
+# 2015-05-07T00:00:00 if there is no such date
+df_party_histories_mps_pre2015.loc[
+    :, 'endDate'
+] = df_party_histories_mps_pre2015.apply(
+    lambda x:
+        [
+            y for y in pre2015_election_dates + [pd.to_datetime('2015-05-07T00:00:00')]
+            if y > x['startDate']
+        ][0],
+    axis=1
+)
+
+# Append pre-2015 MP party history records to other records
+df_party_histories = pd.concat(
+    [
+        df_party_histories_mps_pre2015,
+        df_party_histories.loc[
+            (df_party_histories['endDate'] > pd.to_datetime('2015-05-07T00:00:00')) |
+            (df_party_histories['house'] == 2)
+        ]
+    ]
+)
+
+# %%
