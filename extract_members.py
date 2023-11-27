@@ -86,7 +86,7 @@ df_party_histories = pd.DataFrame(party_histories)
 df_house_membership_histories = pd.DataFrame(house_membership_histories)
 
 # %%
-# CLEAN DATA
+# CARRY OUT GENERAL CLEANING
 # Clean name
 df_members['nameClean'] = df_members['nameDisplayAs'].apply(
     lambda x: so.strip_name_title(x, exclude_peerage=True)
@@ -97,4 +97,15 @@ df_name_histories['nameClean'] = df_name_histories['nameDisplayAs'].apply(
 )
 
 # %%
-df_members
+# Convert date strings to datetimes
+df_name_histories['startDate'] = pd.to_datetime(df_name_histories['startDate'])
+df_name_histories['endDate'] = pd.to_datetime(df_name_histories['endDate'])
+df_party_histories['startDate'] = pd.to_datetime(df_party_histories['startDate'])
+df_party_histories['endDate'] = pd.to_datetime(df_party_histories['endDate'])
+df_house_membership_histories['startDate'] = pd.to_datetime(
+    df_house_membership_histories['startDate']
+)
+df_house_membership_histories['endDate'] = pd.to_datetime(
+    df_house_membership_histories['endDate']
+)
+
