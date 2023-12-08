@@ -11,9 +11,10 @@
     Outputs
         None
     Parameters
-        None
+        - See config.yaml
     Notes
-        None
+        - See technical_documentation.md for details of issues of consistency of
+        record structure that are addressed here
 '''
 
 import math
@@ -25,7 +26,6 @@ from functions import (
     queryMembersSearchAPI, extractMembers, queryMembersHistoryAPI, extractMembersHistory
 )
 from ds_utils import string_operations as so
-
 
 # %%
 # READ IN CONFIG FILE
@@ -114,11 +114,7 @@ df_house_membership_histories['endDate'] = pd.to_datetime(
 # 1. Set party history and membership history end dates to election date rather
 # than start of pre-election period for elections since 2015
 # NB: This makes May 2015-onwards data consistent with data before this point
-preelection_period_to_election_date = {
-    pd.to_datetime('2015-03-30T00:00:00'): pd.to_datetime('2015-05-07T00:00:00'),
-    pd.to_datetime('2017-05-03T00:00:00'): pd.to_datetime('2017-06-08T00:00:00'),
-    pd.to_datetime('2019-11-06T00:00:00'): pd.to_datetime('2019-12-12T00:00:00')
-}
+preelection_period_to_election_date = config['mappings']['preelection_period_to_election_date']
 
 df_party_histories['endDate'] = df_party_histories['endDate'].map(
     lambda x: preelection_period_to_election_date.get(x, x)
@@ -169,22 +165,7 @@ df_party_histories_mps_pre2015.loc[
 )
 
 # Delete items in date_range that are not either the first item or an election date
-pre2015_election_dates = [
-    pd.to_datetime('1959-10-08T00:00:00'),
-    pd.to_datetime('1964-10-15T00:00:00'),
-    pd.to_datetime('1966-03-31T00:00:00'),
-    pd.to_datetime('1970-06-18T00:00:00'),
-    pd.to_datetime('1974-02-28T00:00:00'),
-    pd.to_datetime('1974-10-10T00:00:00'),
-    pd.to_datetime('1979-05-03T00:00:00'),
-    pd.to_datetime('1983-06-09T00:00:00'),
-    pd.to_datetime('1987-06-11T00:00:00'),
-    pd.to_datetime('1992-04-09T00:00:00'),
-    pd.to_datetime('1997-05-01T00:00:00'),
-    pd.to_datetime('2001-06-07T00:00:00'),
-    pd.to_datetime('2005-05-05T00:00:00'),
-    pd.to_datetime('2010-05-06T00:00:00'),
-]
+pre2015_election_dates = config['constants']['pre2015_election_dates']
 
 df_party_histories_mps_pre2015.loc[
     :, 'date_range'
