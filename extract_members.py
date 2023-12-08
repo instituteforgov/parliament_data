@@ -87,14 +87,6 @@ df_party_histories = pd.DataFrame(party_histories)
 df_house_membership_histories = pd.DataFrame(house_membership_histories)
 
 # %%
-# READ IN TEMPORARY COPY OF DATA
-# XXX
-df_members = pd.read_pickle('temp/members.pkl')
-df_name_histories = pd.read_pickle('temp/name_histories.pkl')
-df_party_histories = pd.read_pickle('temp/party_histories.pkl')
-df_house_membership_histories = pd.read_pickle('temp/house_membership_histories.pkl')
-
-# %%
 # CARRY OUT GENERAL CLEANING
 # Clean name
 df_members['nameClean'] = df_members['nameDisplayAs'].apply(
@@ -279,7 +271,7 @@ df_representation = df_house_membership_histories[[
 # NB: Here we want it to be unique for each row
 df_representation.insert(0, 'id', [uuid.uuid4() for _ in range(len(df_representation))])
 
-# Replace parliament_id with person_id
+# Add person_id
 df_representation.insert(
     1, 'person_id',
     df_representation.merge(
@@ -333,6 +325,32 @@ df_constituency = df_representation.loc[
 # Drop membershipFrom, membershipFromID columns
 df_representation.drop(
     columns=['membershipFrom', 'membershipFromID'],
+    inplace=True
+)
+
+# Drop rows where start_date is NaT
+# NB: These appear to be erroneous/near-duplicate records for hereditary peers
+
+# Check that these are all near-duplicates of something that does feature a start_date
+df_representation_has_start_date = df_representation.loc[
+    df_representation['start_date'].notna()
+]
+
+assert df_representation.loc[
+    (df_representation['start_date'].isna()) &
+    (
+        ~df_representation['person_id'].isin(
+            df_representation_has_start_date['person_id']
+        )
+    )
+].empty, 'Not everyone in df_representation without a start_date has a record that \
+    includes a start_date'
+
+# Drop rows
+df_representation.drop(
+    df_representation.loc[
+        df_representation['start_date'].isna()
+    ].index,
     inplace=True
 )
 
