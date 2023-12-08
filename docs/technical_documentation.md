@@ -41,4 +41,8 @@ For **MPs**, one record per parliament (including those before May 2015 - note t
     - the date of the election at which someone left parliament for elections before May 2015;
     - the date the pre-election period starts for the May 2015 election and subsequent elections.
 
+For MPs `membershipFrom` values are constituency names.
+
 For **peers**, a single record.
+
+For peers, `membershipFrom` values are the type of peerage held (e.g. life peer, excepted hereditary). `membershipFromID` values up to and including 10 used for these `membershipFrom` values.
