@@ -261,3 +261,82 @@ df_person.insert(
     df_person.groupby('parliament_id')['name'].transform(lambda x: uuid.uuid4())
 )
 
+# %%
+# Build representation, constituency tables
+
+# Create base table
+df_representation = df_house_membership_histories[[
+    'id', 'house', 'membershipFrom', 'membershipFromID', 'startDate', 'endDate'
+]].rename(
+    columns={
+        'id': 'parliament_id',
+        'startDate': 'start_date',
+        'endDate': 'end_date',
+    }
+)
+
+# Add UUID
+# NB: Here we want it to be unique for each row
+df_representation.insert(0, 'id', [uuid.uuid4() for _ in range(len(df_representation))])
+
+# Replace parliament_id with person_id
+df_representation.insert(
+    1, 'person_id',
+    df_representation.merge(
+        df_person[['id', 'parliament_id']].drop_duplicates(),
+        on='parliament_id',
+        how='inner',
+        suffixes=(None, '_y'),
+        validate='many_to_one'
+    ).rename(
+        columns={
+            'id_y': 'person_id'
+        }
+    )['person_id']
+)
+
+# Code house to Commons, Lords
+df_representation['house'] = df_representation['house'].map(
+    lambda x: 'Commons' if x == 1 else 'Lords'
+)
+
+# Save membershipFrom to type column where it relates to peerage type
+# NB: See technical_documentation.md for details
+df_representation.insert(
+    3, 'type',
+    df_representation.apply(
+        lambda x: x['membershipFrom'].capitalize() if x['membershipFromID'] <= 10 else pd.NA,
+        axis=1
+    )
+)
+
+# Convert membershipFromID to constituency_id
+# Ref: https://stackoverflow.com/a/48975426/4659442
+df_representation.insert(
+    4, 'constituency_id',
+    df_representation.groupby('membershipFromID')['house'].transform(lambda x: uuid.uuid4())
+)
+
+# Build constituency table, excluding rows relating to peerages
+df_constituency = df_representation.loc[
+    df_representation['type'].isna()
+][[
+    'constituency_id', 'membershipFrom', 'membershipFromID'
+]].drop_duplicates().rename(
+    columns={
+        'constituency_id': 'id',
+        'membershipFrom': 'name',
+        'membershipFromID': 'parliament_id'
+    }
+)
+
+# Drop membershipFrom, membershipFromID columns
+df_representation.drop(
+    columns=['membershipFrom', 'membershipFromID'],
+    inplace=True
+)
+
+# Reorder columns
+df_representation = df_representation[[
+    'id', 'person_id', 'house', 'type', 'start_date', 'end_date'
+]]
