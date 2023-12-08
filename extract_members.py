@@ -18,6 +18,7 @@
 '''
 
 import math
+import uuid
 
 import pandas as pd
 import yaml
@@ -84,6 +85,14 @@ for record in members_history_results:
 df_name_histories = pd.DataFrame(name_histories)
 df_party_histories = pd.DataFrame(party_histories)
 df_house_membership_histories = pd.DataFrame(house_membership_histories)
+
+# %%
+# READ IN TEMPORARY COPY OF DATA
+# XXX
+df_members = pd.read_pickle('temp/members.pkl')
+df_name_histories = pd.read_pickle('temp/name_histories.pkl')
+df_party_histories = pd.read_pickle('temp/party_histories.pkl')
+df_house_membership_histories = pd.read_pickle('temp/house_membership_histories.pkl')
 
 # %%
 # CARRY OUT GENERAL CLEANING
@@ -227,9 +236,20 @@ df_name_histories = df_name_histories.groupby(['id', 'nameClean']).agg({
 ).reset_index()
 
 # %%
-sorted(df_members['statusNotes'].unique())
+# BUILD FINAL DATAFRAMES
+# Build person table
+# TODO: Currently no attempt to create short_name column
+df_person = df_name_histories.merge(
+    df_members[['id', 'gender']],
+    on='id',
+    how='left',
+).rename(
+    columns={
+        'id': 'parliament_id',
+        'nameClean': 'name',
+        'startDate': 'start_date',
+        'endDate': 'end_date',
+    }
+)[['parliament_id', 'name', 'gender', 'start_date', 'end_date']]
 
-# %%
-df_members.loc[
-    df_members['statusNotes'].isna(),
-]
+df_person.insert(0, 'id', [uuid.uuid4() for _ in range(len(df_person))])
