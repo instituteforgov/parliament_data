@@ -239,6 +239,8 @@ df_name_histories = df_name_histories.groupby(['id', 'nameClean']).agg({
 # BUILD FINAL DATAFRAMES
 # Build person table
 # TODO: Currently no attempt to create short_name column
+
+# Create base table
 df_person = df_name_histories.merge(
     df_members[['id', 'gender']],
     on='id',
@@ -252,4 +254,10 @@ df_person = df_name_histories.merge(
     }
 )[['parliament_id', 'name', 'gender', 'start_date', 'end_date']]
 
-df_person.insert(0, 'id', [uuid.uuid4() for _ in range(len(df_person))])
+# Add UUID
+# Ref: https://stackoverflow.com/a/48975426/4659442
+df_person.insert(
+    0, 'id',
+    df_person.groupby('parliament_id')['name'].transform(lambda x: uuid.uuid4())
+)
+
