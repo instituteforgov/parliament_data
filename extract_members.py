@@ -272,19 +272,16 @@ df_representation = df_house_membership_histories[[
 df_representation.insert(0, 'id', [uuid.uuid4() for _ in range(len(df_representation))])
 
 # Add person_id
-df_representation.insert(
-    1, 'person_id',
-    df_representation.merge(
-        df_person[['id', 'parliament_id']].drop_duplicates(),
-        on='parliament_id',
-        how='inner',
-        suffixes=(None, '_y'),
-        validate='many_to_one'
-    ).rename(
-        columns={
-            'id_y': 'person_id'
-        }
-    )['person_id']
+df_representation = df_representation.merge(
+    df_person[['id', 'parliament_id']].drop_duplicates(),
+    on='parliament_id',
+    how='inner',
+    suffixes=(None, '_y'),
+    validate='many_to_one'
+).rename(
+    columns={
+        'id_y': 'person_id'
+    }
 )
 
 # Code house to Commons, Lords
