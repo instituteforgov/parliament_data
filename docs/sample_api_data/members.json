@@ -1,0 +1,62 @@
+{
+  "value": {
+    "id": 1581,
+    "nameListAs": "Bone, Mr Peter",
+    "nameDisplayAs": "Mr Peter Bone",
+    "nameFullTitle": "Mr Peter Bone MP",
+    "nameAddressAs": "Mr Bone",
+    "latestParty": {
+      "id": 8,
+      "name": "Independent",
+      "abbreviation": "Ind",
+      "backgroundColour": "C0C0C0",
+      "foregroundColour": "FFFFFF",
+      "isLordsMainParty": false,
+      "isLordsSpiritualParty": false,
+      "governmentType": null,
+      "isIndependentParty": true
+    },
+    "gender": "M",
+    "latestHouseMembership": {
+      "membershipFrom": "Wellingborough",
+      "membershipFromId": 3837,
+      "house": 1,
+      "membershipStartDate": "2005-05-05T00:00:00",
+      "membershipEndDate": null,
+      "membershipEndReason": null,
+      "membershipEndReasonNotes": null,
+      "membershipEndReasonId": null,
+      "membershipStatus": {
+        "statusIsActive": false,
+        "statusDescription": "Suspended",
+        "statusNotes": "Recommendation from Independent Expert Panel",
+        "statusId": 1,
+        "status": 1,
+        "statusStartDate": "2023-10-25T00:00:00"
+      }
+    },
+    "thumbnailUrl": "https://members-api.parliament.uk/api/Members/1581/Thumbnail"
+  },
+  "links": [
+    {
+      "rel": "self",
+      "href": "/Members/1581",
+      "method": "GET"
+    },
+    {
+      "rel": "overview",
+      "href": "/Members/1581",
+      "method": "GET"
+    },
+    {
+      "rel": "synopsis",
+      "href": "/Members/1581/Synopsis",
+      "method": "GET"
+    },
+    {
+      "rel": "contactInformation",
+      "href": "/Members/1581/Contact",
+      "method": "GET"
+    }
+  ]
+}
