@@ -24,7 +24,7 @@ import yaml
 from functions import (
     queryMembersSearchAPI, extractMembers, queryMembersHistoryAPI, extractMembersHistory
 )
-from utils import string_operations as so
+from ds_utils import string_operations as so
 
 
 # %%
@@ -243,3 +243,11 @@ df_name_histories_collapsed = df_name_histories.groupby(['id', 'nameClean']).agg
 }).mask(
     df_name_histories[['startDate', 'endDate']].isna().groupby(df_name_histories['id']).max()
 ).reset_index()
+
+# %%
+sorted(df_members['statusNotes'].unique())
+
+# %%
+df_members.loc[
+    df_members['statusNotes'].isna(),
+]

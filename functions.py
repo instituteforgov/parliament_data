@@ -6,7 +6,7 @@ from typing import Literal, Optional
 
 import requests
 
-import utils.log_operations as lo
+from ds_utils import log_operations as lo
 
 
 def queryMembersSearchAPI(
@@ -116,6 +116,15 @@ def extractMembers(json: dict) -> list:
             'is_current': is_current,
             'party': member['value']['latestParty']['name'],
             'constituency': member['value']['latestHouseMembership']['membershipFrom'],
+            'status': (
+                member['value']['latestHouseMembership']['membershipStatus']['statusDescription']
+            ),
+            'statusNotes': (
+                member['value']['latestHouseMembership']['membershipStatus']['statusNotes']
+            ),
+            'statusStartDate': (
+                member['value']['latestHouseMembership']['membershipStatus']['statusStartDate']
+            ),
         })
         members.append(dict)
 
