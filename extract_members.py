@@ -203,6 +203,7 @@ df_party_histories = pd.concat(
         df_party_histories_mps_pre2015,
         df_party_histories.loc[
             (df_party_histories['endDate'] > pd.to_datetime('2015-05-07T00:00:00')) |
+            (pd.isna(df_party_histories['endDate'])) |
             (df_party_histories['house'] == 2)
         ]
     ]
