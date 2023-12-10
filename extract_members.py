@@ -247,6 +247,43 @@ df_person = df_name_histories.merge(
     }
 )[['parliament_id', 'name', 'gender', 'start_date', 'end_date']]
 
+# Set start_date/end_date to NaT where there isn't a corresponding end_date/start_date
+# NB: In many cases these will be dates of birth and dates of death, which we aren't interested
+# in. In the case of Lords, a start_date will in many cases be a date of ennoblement, which would
+# correspond to a name change - but in the case of newly elected hereditary peers it may not be
+df_person['start_date_matches_end_date'] = df_person.apply(
+    lambda x:
+        not df_person.loc[
+            (x['parliament_id'] == df_person['parliament_id']) &
+            (x['start_date'] == df_person['end_date'])
+        ].empty,
+    axis=1
+)
+
+df_person['end_date_matches_start_date'] = df_person.apply(
+    lambda x:
+        not df_person.loc[
+            (x['parliament_id'] == df_person['parliament_id']) &
+            (x['end_date'] == df_person['start_date'])
+        ].empty,
+    axis=1
+)
+
+df_person.loc[
+    ~df_person['start_date_matches_end_date'],
+    'start_date'
+] = pd.NA
+
+df_person.loc[
+    ~df_person['end_date_matches_start_date'],
+    'end_date'
+] = pd.NA
+
+df_person.drop(
+    columns=['start_date_matches_end_date', 'end_date_matches_start_date'],
+    inplace=True
+)
+
 # Add UUID
 # Ref: https://stackoverflow.com/a/48975426/4659442
 df_person.insert(
