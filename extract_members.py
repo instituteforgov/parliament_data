@@ -445,3 +445,72 @@ df_representation_characteristics.insert(
     0, 'id',
     [uuid.uuid4() for _ in range(len(df_representation_characteristics))]
 )
+
+# %%
+# Build representation status table
+
+# Create base table
+df_representation_status = df_members[['id', 'status', 'statusNotes', 'statusStartDate']].rename(
+    columns={
+        'id': 'parliament_id',
+        'status': 'status',
+        'statusNotes': 'reason',
+        'statusStartDate': 'start_date',
+    }
+)
+
+# Recode status and make sentence case
+df_representation_status['status'] = df_representation_status['status'].apply(
+    lambda x: x.replace('Current Member', 'Active').capitalize() if pd.notna(x) else x
+)
+
+# Make notes sentence case
+df_representation_status['reason'] = df_representation_status.apply(
+    lambda x:
+        None if x['reason'] == x['status'] else
+        x['reason'].capitalize() if pd.notna(x['reason']) else
+        x['reason'],
+    axis=1
+)
+
+# Add NaT end date
+df_representation_status['end_date'] = pd.NA
+
+# Add representation_id
+df_representation_status = df_representation_status.merge(
+    df_representation,
+    on='parliament_id',
+    how='left',
+    suffixes=('_rs', '_r')
+).rename(
+    columns={
+        'id': 'representation_id',
+        'start_date_rs': 'start_date',
+        'end_date_rs': 'end_date',
+    }
+)
+
+df_representation_status = df_representation_status[
+    (df_representation_status['start_date'] >= df_representation_status['start_date_r']) &
+    (
+        (pd.isna(df_representation_status['end_date_r'])) |
+        (df_representation_status['end_date'] <= df_representation_status['end_date_r'])
+    )
+]
+
+# Check that only one record per person
+# NB: This should be true, as the API only returns a member's latest status
+assert df_representation_status.groupby('parliament_id').size().max() == 1, 'More than one \
+    representation status record for at least one person'
+
+# Drop columns
+df_representation_status = df_representation_status[[
+    'representation_id', 'status', 'reason', 'start_date', 'end_date'
+]]
+
+# Add UUID
+# NB: Here we want it to be unique for each row
+df_representation_status.insert(
+    0, 'id',
+    [uuid.uuid4() for _ in range(len(df_representation_status))]
+)
