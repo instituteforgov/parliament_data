@@ -97,7 +97,6 @@ df_name_histories['nameClean'] = df_name_histories['nameDisplayAs'].apply(
     lambda x: so.strip_name_title(x, exclude_peerage=True)
 )
 
-# %%
 # Convert date strings to datetimes
 df_members['statusStartDate'] = pd.to_datetime(df_members['statusStartDate'])
 df_name_histories['startDate'] = pd.to_datetime(df_name_histories['startDate'])
@@ -364,28 +363,27 @@ df_representation.drop(
     inplace=True
 )
 
-# Drop rows where start_date is NaT
+# Drop rows where start_date and end_date is NaT and the individual has a record
+# where start_date is not NaT and end_date is NaT
 # NB: These appear to be erroneous/near-duplicate records for hereditary peers
-
-# Check that these are all near-duplicates of something that does feature a start_date
-df_representation_has_start_date = df_representation.loc[
-    df_representation['start_date'].notna()
-]
-
-assert df_representation.loc[
-    (df_representation['start_date'].isna()) &
-    (
-        ~df_representation['person_id'].isin(
-            df_representation_has_start_date['person_id']
-        )
-    )
-].empty, 'Not everyone in df_representation without a start_date has a record that \
-    includes a start_date'
+# NB: This leaves in place a small number of records where start_date and end_date
+# are NaT and the individual doesn't have a record where end_date is NaT - these
+# appear to be erroneous records for some excepted hereditary peers that are missing
+# a start_date. See technical_documentation.md for details
 
 # Drop rows
 df_representation.drop(
     df_representation.loc[
-        df_representation['start_date'].isna()
+        (df_representation['start_date'].isna()) &
+        (df_representation['end_date'].isna()) &
+        (
+            df_representation['parliament_id'].isin(
+                df_representation.loc[
+                    (df_representation['start_date'].notna()) &
+                    (df_representation['end_date'].isna())
+                ]['parliament_id']
+            )
+        )
     ].index,
     inplace=True
 )
@@ -508,7 +506,7 @@ assert df_representation_status.groupby('parliament_id').size().max() == 1, 'Mor
 
 # Drop columns
 df_representation_status = df_representation_status[[
-    'representation_id', 'status', 'reason', 'start_date', 'end_date'
+    'representation_id', 'parliament_id', 'status', 'reason', 'start_date', 'end_date'
 ]]
 
 # Add UUID
