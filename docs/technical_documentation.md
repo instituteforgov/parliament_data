@@ -33,6 +33,8 @@ For **peers**, a single record for periods in a party, with elections having no 
 
 Where someone was an **MP** and became a **peer**, separate records for each.
 
+Some, generally historic, periods in parliament don't have associated party history details e.g. Jeffrey Archer's time in the Commons in the 1960s/1970s: https://members-api.parliament.uk/api/Members/History/?ids=1612.
+
 ### House membership history
 For **MPs**, one record per parliament (including those before May 2015 - note the contrast here with party history), where:
 
