@@ -11,6 +11,8 @@ Several options exist for parliamentarians' names:
 
 `nameDisplayAs` is the name extracted for our use.
 
+Some, records have `statusStartDate` before someone's house membership begins, e.g. Lord Chartres: https://members-api.parliament.uk/api/Members/1946.
+
 ## Members history API
 
 Example: https://members-api.parliament.uk/api/Members/History/?ids=1581

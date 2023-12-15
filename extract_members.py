@@ -478,8 +478,10 @@ df_representation_status['reason'] = df_representation_status.apply(
 df_representation_status['end_date'] = pd.NA
 
 # Add representation_id
+# NB: Only using df_representation records where end_date is NaT as we only
+# have current representation statuses
 df_representation_status = df_representation_status.merge(
-    df_representation,
+    df_representation.loc[df_representation['end_date'].isna()],
     on='parliament_id',
     how='left',
     suffixes=('_rs', '_r')
@@ -491,13 +493,13 @@ df_representation_status = df_representation_status.merge(
     }
 )
 
-df_representation_status = df_representation_status[
-    (df_representation_status['start_date'] >= df_representation_status['start_date_r']) &
-    (
-        (pd.isna(df_representation_status['end_date_r'])) |
-        (df_representation_status['end_date'] <= df_representation_status['end_date_r'])
-    )
-]
+# Set status start date to start date of representation where status start date is before
+# start date of representation
+# NB: There are some records where this isn't the case. See technical_documentation.md for details
+df_representation_status.loc[
+    df_representation_status['start_date'] < df_representation_status['start_date_r'],
+    'start_date'
+] = df_representation_status['start_date_r']
 
 # Check that only one record per person
 # NB: This should be true, as the API only returns a member's latest status
