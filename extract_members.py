@@ -99,6 +99,7 @@ df_name_histories['nameClean'] = df_name_histories['nameDisplayAs'].apply(
 
 # %%
 # Convert date strings to datetimes
+df_members['statusStartDate'] = pd.to_datetime(df_members['statusStartDate'])
 df_name_histories['startDate'] = pd.to_datetime(df_name_histories['startDate'])
 df_name_histories['endDate'] = pd.to_datetime(df_name_histories['endDate'])
 df_party_histories['startDate'] = pd.to_datetime(df_party_histories['startDate'])
