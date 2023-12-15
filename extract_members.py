@@ -391,5 +391,57 @@ df_representation.drop(
 
 # Reorder columns
 df_representation = df_representation[[
-    'id', 'person_id', 'house', 'type', 'start_date', 'end_date'
+    'id', 'person_id', 'parliament_id', 'house', 'type', 'start_date', 'end_date'
 ]]
+
+# %%
+# Build representation history table
+
+# Create base table, including all possible combinations of representation and
+# party history
+df_representation_characteristics = df_representation.merge(
+    df_party_histories,
+    left_on='parliament_id',
+    right_on='id',
+    how='left',
+    suffixes=('_r', '_ph'),
+).rename(
+    columns={
+        'id_r': 'representation_id',
+
+    }
+)
+
+# Restrict to records where representation characteristics period falls
+# within representation period
+# NB: Here startDate is start date from df_party_histories
+df_representation_characteristics = df_representation_characteristics[
+    (
+        df_representation_characteristics['start_date'] <=
+        df_representation_characteristics['startDate']
+    ) &
+    (
+        (pd.isna(df_representation_characteristics['end_date'])) |
+        (
+            df_representation_characteristics['end_date'] >
+            df_representation_characteristics['startDate']
+        )
+    )
+]
+
+# Drop and rename columns
+df_representation_characteristics = df_representation_characteristics[[
+    'representation_id', 'party', 'startDate', 'endDate'
+]].rename(
+    columns={
+        'startDate': 'start_date',
+        'endDate': 'end_date',
+    }
+)
+
+# Add UUID
+# NB: Here we want it to be unique for each row
+df_representation_characteristics.insert(
+    0, 'id',
+    [uuid.uuid4() for _ in range(len(df_representation_characteristics))]
+)
