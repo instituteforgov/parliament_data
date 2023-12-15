@@ -50,3 +50,5 @@ For MPs `membershipFrom` values are constituency names.
 For **peers**, a single record.
 
 For peers, `membershipFrom` values are the type of peerage held (e.g. life peer, excepted hereditary). `membershipFromID` values up to and including 10 used for these `membershipFrom` values.
+
+For some excepted hereditary peers, `membershipStartDate` appears to be missing e.g. Earl Cathcart's time as an excepted hereditary peers from March 2007: https://members-api.parliament.uk/api/Members/History/?ids=2463 (compare vs https://members-api.parliament.uk/api/Members/2463).
