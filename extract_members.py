@@ -17,6 +17,7 @@
         record structure that are addressed here
 '''
 
+import os
 import math
 import uuid
 
@@ -26,12 +27,43 @@ import yaml
 from functions import (
     queryMembersSearchAPI, extractMembers, queryMembersHistoryAPI, extractMembersHistory
 )
+from ds_utils import database_operations as dbo
 from ds_utils import string_operations as so
 
 # %%
 # READ IN CONFIG FILE
 with open('config.yaml', 'r') as f:
     config = yaml.safe_load(f)
+
+# %%
+# READ IN EXISTING D/B DATA
+connection = dbo.connect_sql_db(
+    driver='pyodbc',
+    driver_version=os.environ['odbc_driver'],
+    dialect='mssql',
+    server=os.environ['odbc_server'],
+    database=os.environ['odbc_database'],
+    authentication=os.environ['odbc_authentication'],
+    username=os.environ['odbc_username'],
+)
+
+# core.person
+df_person_existing = dbo.retry_sql_query(
+    function=pd.read_sql,
+    query='''
+        select *
+        from testing.person_2
+    ''',
+    con=connection,
+    parse_dates=['start_date', 'end_date']
+)
+
+# %%
+# READ IN TEMPORARY COPY OF DATA
+df_members = pd.read_pickle('temp/members.pkl')
+df_name_histories = pd.read_pickle('temp/name_histories.pkl')
+df_party_histories = pd.read_pickle('temp/party_histories.pkl')
+df_house_membership_histories = pd.read_pickle('temp/house_membership_histories.pkl')
 
 # %%
 # QUERY MEMBERS SEARCH API AND EXTRACT DATA TO DF
@@ -284,12 +316,25 @@ df_person.drop(
     inplace=True
 )
 
-# Add UUID
-# Ref: https://stackoverflow.com/a/48975426/4659442
-df_person.insert(
-    0, 'id',
-    df_person.groupby('parliament_id')['name'].transform(lambda x: uuid.uuid4())
+# Pull in UUIDs from existing data where they exist
+df_person = df_person.merge(
+    df_person_existing.loc[
+        df_person_existing['parliament_id'].notna()
+    ][['id', 'parliament_id']].drop_duplicates(),
+    how='left',
+    on=['parliament_id'],
+    validate='many_to_one'
 )
+
+# Add UUIDs for people not in existing data
+# NB: This adds the same ID for people with the same parliament_id
+# Ref: https://stackoverflow.com/a/48975426/4659442
+df_person.loc[
+    df_person['id'].isna(),
+    'id'
+] = df_person.loc[
+    df_person['id'].isna()
+].groupby('parliament_id')['parliament_id'].transform(lambda x: uuid.uuid4())
 
 # %%
 # Build representation, constituency tables
@@ -327,7 +372,7 @@ df_representation['house'] = df_representation['house'].map(
     lambda x: 'Commons' if x == 1 else 'Lords'
 )
 
-# Save membershipFrom to type column where it relates to peerage type
+# Create peerage type column
 # NB: See technical_documentation.md for details
 df_representation.insert(
     3, 'type',
