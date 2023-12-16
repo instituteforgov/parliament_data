@@ -390,7 +390,7 @@ df_representation.drop(
 
 # Reorder columns
 df_representation = df_representation[[
-    'id', 'person_id', 'parliament_id', 'house', 'type', 'start_date', 'end_date'
+    'id', 'person_id', 'parliament_id', 'house', 'type', 'constituency_id', 'start_date', 'end_date'
 ]]
 
 # %%
