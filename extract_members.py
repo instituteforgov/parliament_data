@@ -11,7 +11,8 @@
     Outputs
         None
     Parameters
-        - See config.yaml
+        - General: Stored in config.yaml
+        - Database connection: Stored in environment variables
     Notes
         - See technical_documentation.md for details of issues of consistency of
         record structure that are addressed here
