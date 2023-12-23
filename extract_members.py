@@ -337,6 +337,11 @@ df_person.loc[
     df_person['id'].isna()
 ].groupby('parliament_id')['parliament_id'].transform(lambda x: uuid.uuid4())
 
+# Reorder columns
+df_person = df_person[[
+    'id', 'parliament_id', 'name', 'gender', 'start_date', 'end_date'
+]]
+
 # %%
 # Build representation, constituency tables
 
