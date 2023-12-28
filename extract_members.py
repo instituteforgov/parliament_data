@@ -364,7 +364,7 @@ df_person.loc[
 
 # Reorder columns
 df_person = df_person[[
-    'id', 'id_parliament', 'name', 'gender', 'start_date', 'end_date'
+    'id', 'id_parliament', 'name', 'short_name', 'gender', 'start_date', 'end_date'
 ]]
 
 # %%
