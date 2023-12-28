@@ -58,7 +58,10 @@ df_person_existing = dbo.retry_sql_query(
         from testing.person_2
     ''',
     con=connection,
-    parse_dates=['start_date', 'end_date']
+    parse_dates=['start_date', 'end_date'],
+    dtype={
+        'parliament_id': 'Int64',
+    }
 )
 
 # Rename parliament_id column in df_person_existing
