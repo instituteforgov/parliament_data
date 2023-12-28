@@ -22,6 +22,7 @@ import os
 import math
 import uuid
 
+from nameparser import HumanName
 import pandas as pd
 import yaml
 
@@ -121,13 +122,20 @@ df_house_membership_histories = pd.DataFrame(house_membership_histories)
 
 # %%
 # CARRY OUT GENERAL CLEANING
-# Clean name
+# Strip titles from names
 df_members['nameClean'] = df_members['nameDisplayAs'].apply(
     lambda x: so.strip_name_title(x, exclude_peerage=True)
 )
 
 df_name_histories['nameClean'] = df_name_histories['nameDisplayAs'].apply(
     lambda x: so.strip_name_title(x, exclude_peerage=True)
+)
+
+# Remove commas and full stops from names
+# NB: This fixes occasional issues such as 'Angela, E. Smith'
+df_members.loc[:, 'nameClean'] = df_members['nameClean'].str.replace(',', '').str.replace('.', '')
+df_name_histories.loc[:, 'nameClean'] = (
+    df_name_histories['nameClean'].str.replace(',', '').str.replace('.', '')
 )
 
 # Convert date strings to datetimes
@@ -250,8 +258,9 @@ df_party_histories = pd.concat(
 # has created additional redundant records
 # NB: mask() replaces values with NaT where one value is NaT in that column for that ID - needed
 # as max() otherwise favours known dates over missing dates, where missing dates indicate
-# something is ongoing
-# Ref: https://stackoverflow.com/a/71299818/4659442
+# something is ongoing. Ref: https://stackoverflow.com/a/71299818/4659442
+# NB: In some cases parliament data erroneously contains near-duplicate name records (e.g.
+# Mary Kelly Foy, 4753) - these aren't fixed here and need to be fixed downstream in SQL
 df_name_histories = df_name_histories.groupby(['id', 'nameClean']).agg({
     'startDate': 'min',
     'endDate': 'max'
@@ -264,7 +273,6 @@ df_name_histories = df_name_histories.groupby(['id', 'nameClean']).agg({
 # %%
 # BUILD FINAL DATAFRAMES
 # Build person table
-# TODO: Currently no attempt to create short_name column
 
 # Create base table
 df_person = df_name_histories.merge(
@@ -279,6 +287,17 @@ df_person = df_name_histories.merge(
         'endDate': 'end_date',
     }
 )[['parliament_id', 'name', 'gender', 'start_date', 'end_date']]
+
+# Create short_name column
+# Where name contains 'of', apply split_title_names(), taking last name where it exists
+# and place where it doesn't (e.g. Minto for Earl of Minto), otherwise apply HumanName(),
+# taking last name
+df_person['short_name'] = df_person['name'].apply(
+    lambda x:
+        so.split_title_names(x)[1] if ' of ' in x and so.split_title_names(x)[1] else
+        so.split_title_names(x)[2] if ' of ' in x else
+        HumanName(x).last or pd.NA
+)
 
 # Set start_date/end_date to NaT where there isn't a corresponding end_date/start_date
 # NB: In many cases these will be dates of birth and dates of death, which we aren't interested
