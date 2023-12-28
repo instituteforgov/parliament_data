@@ -60,6 +60,12 @@ df_person_existing = dbo.retry_sql_query(
     parse_dates=['start_date', 'end_date']
 )
 
+# Rename parliament_id column in df_person_existing
+df_person_existing.rename(
+    columns={'parliament_id': 'id_parliament'},
+    inplace=True
+)
+
 # %%
 # READ IN TEMPORARY COPY OF DATA
 df_members = pd.read_pickle('temp/members.pkl')
@@ -281,12 +287,12 @@ df_person = df_name_histories.merge(
     how='left',
 ).rename(
     columns={
-        'id': 'parliament_id',
+        'id': 'id_parliament',
         'nameClean': 'name',
         'startDate': 'start_date',
         'endDate': 'end_date',
     }
-)[['parliament_id', 'name', 'gender', 'start_date', 'end_date']]
+)[['id_parliament', 'name', 'gender', 'start_date', 'end_date']]
 
 # Create short_name column
 # Where name contains 'of', apply split_title_names(), taking last name where it exists
@@ -306,7 +312,7 @@ df_person['short_name'] = df_person['name'].apply(
 df_person['start_date_matches_end_date'] = df_person.apply(
     lambda x:
         not df_person.loc[
-            (x['parliament_id'] == df_person['parliament_id']) &
+            (x['id_parliament'] == df_person['id_parliament']) &
             (x['start_date'] == df_person['end_date'])
         ].empty,
     axis=1
@@ -315,7 +321,7 @@ df_person['start_date_matches_end_date'] = df_person.apply(
 df_person['end_date_matches_start_date'] = df_person.apply(
     lambda x:
         not df_person.loc[
-            (x['parliament_id'] == df_person['parliament_id']) &
+            (x['id_parliament'] == df_person['id_parliament']) &
             (x['end_date'] == df_person['start_date'])
         ].empty,
     axis=1
@@ -339,26 +345,26 @@ df_person.drop(
 # Pull in UUIDs from existing data where they exist
 df_person = df_person.merge(
     df_person_existing.loc[
-        df_person_existing['parliament_id'].notna()
-    ][['id', 'parliament_id']].drop_duplicates(),
+        df_person_existing['id_parliament'].notna()
+    ][['id', 'id_parliament']].drop_duplicates(),
     how='left',
-    on=['parliament_id'],
+    on=['id_parliament'],
     validate='many_to_one'
 )
 
 # Add UUIDs for people not in existing data
-# NB: This adds the same ID for people with the same parliament_id
+# NB: This adds the same ID for people with the same id_parliament
 # Ref: https://stackoverflow.com/a/48975426/4659442
 df_person.loc[
     df_person['id'].isna(),
     'id'
 ] = df_person.loc[
     df_person['id'].isna()
-].groupby('parliament_id')['parliament_id'].transform(lambda x: uuid.uuid4())
+].groupby('id_parliament')['id_parliament'].transform(lambda x: uuid.uuid4())
 
 # Reorder columns
 df_person = df_person[[
-    'id', 'parliament_id', 'name', 'gender', 'start_date', 'end_date'
+    'id', 'id_parliament', 'name', 'gender', 'start_date', 'end_date'
 ]]
 
 # %%
@@ -369,7 +375,7 @@ df_representation = df_house_membership_histories[[
     'id', 'house', 'membershipFrom', 'membershipFromID', 'startDate', 'endDate'
 ]].rename(
     columns={
-        'id': 'parliament_id',
+        'id': 'id_parliament',
         'startDate': 'start_date',
         'endDate': 'end_date',
     }
@@ -381,8 +387,8 @@ df_representation.insert(0, 'id', [uuid.uuid4() for _ in range(len(df_representa
 
 # Add person_id
 df_representation = df_representation.merge(
-    df_person[['id', 'parliament_id']].drop_duplicates(),
-    on='parliament_id',
+    df_person[['id', 'id_parliament']].drop_duplicates(),
+    on='id_parliament',
     how='inner',
     suffixes=(None, '_y'),
     validate='many_to_one'
@@ -423,7 +429,7 @@ df_constituency = df_representation.loc[
     columns={
         'constituency_id': 'id',
         'membershipFrom': 'name',
-        'membershipFromID': 'parliament_id'
+        'membershipFromID': 'id_parliament'
     }
 )
 
@@ -447,11 +453,11 @@ df_representation.drop(
         (df_representation['start_date'].isna()) &
         (df_representation['end_date'].isna()) &
         (
-            df_representation['parliament_id'].isin(
+            df_representation['id_parliament'].isin(
                 df_representation.loc[
                     (df_representation['start_date'].notna()) &
                     (df_representation['end_date'].isna())
-                ]['parliament_id']
+                ]['id_parliament']
             )
         )
     ].index,
@@ -460,7 +466,7 @@ df_representation.drop(
 
 # Reorder columns
 df_representation = df_representation[[
-    'id', 'person_id', 'parliament_id', 'house', 'type', 'constituency_id', 'start_date', 'end_date'
+    'id', 'person_id', 'id_parliament', 'house', 'type', 'constituency_id', 'start_date', 'end_date'
 ]]
 
 # %%
@@ -470,7 +476,7 @@ df_representation = df_representation[[
 # party history
 df_representation_characteristics = df_representation.merge(
     df_party_histories,
-    left_on='parliament_id',
+    left_on='id_parliament',
     right_on='id',
     how='left',
     suffixes=('_r', '_ph'),
@@ -521,7 +527,7 @@ df_representation_characteristics.insert(
 # Create base table
 df_representation_status = df_members[['id', 'status', 'statusNotes', 'statusStartDate']].rename(
     columns={
-        'id': 'parliament_id',
+        'id': 'id_parliament',
         'status': 'status',
         'statusNotes': 'reason',
         'statusStartDate': 'start_date',
@@ -550,7 +556,7 @@ df_representation_status['end_date'] = pd.NA
 # have current representation statuses
 df_representation_status = df_representation_status.merge(
     df_representation.loc[df_representation['end_date'].isna()],
-    on='parliament_id',
+    on='id_parliament',
     how='left',
     suffixes=('_rs', '_r')
 ).rename(
@@ -571,12 +577,12 @@ df_representation_status.loc[
 
 # Check that only one record per person
 # NB: This should be true, as the API only returns a member's latest status
-assert df_representation_status.groupby('parliament_id').size().max() == 1, 'More than one \
+assert df_representation_status.groupby('id_parliament').size().max() == 1, 'More than one \
     representation status record for at least one person'
 
 # Drop columns
 df_representation_status = df_representation_status[[
-    'representation_id', 'parliament_id', 'status', 'reason', 'start_date', 'end_date'
+    'representation_id', 'id_parliament', 'status', 'reason', 'start_date', 'end_date'
 ]]
 
 # Add UUID
