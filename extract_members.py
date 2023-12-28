@@ -24,6 +24,7 @@ import uuid
 
 from nameparser import HumanName
 import pandas as pd
+from sqlalchemy.dialects.mssql import DATE, NVARCHAR, SMALLINT, UNIQUEIDENTIFIER
 import yaml
 
 from functions import (
@@ -606,3 +607,70 @@ df_temp = pd.concat(
     ignore_index=True
 )
 
+# %%
+# SAVE DATA TO D/B
+# core.person
+df_person.to_sql(
+    name='person',
+    con=connection,
+    schema='testing',
+    if_exists='replace',
+    index=False,
+    dtype={
+        'id': UNIQUEIDENTIFIER,
+        'id_parliament': SMALLINT,
+        'name': NVARCHAR(256),
+        'gender': NVARCHAR(1),
+        'start_date': DATE,
+        'end_date': DATE,
+    },
+)
+
+# core.representation
+df_representation.to_sql(
+    name='representation',
+    con=connection,
+    schema='testing',
+    if_exists='replace',
+    index=False,
+    dtype={
+        'id': UNIQUEIDENTIFIER,
+        'person_id': UNIQUEIDENTIFIER,
+        'id_parliament': SMALLINT,
+        'house': NVARCHAR(7),
+        'type': NVARCHAR(256),
+        'constituency_id': UNIQUEIDENTIFIER,
+        'start_date': DATE,
+        'end_date': DATE,
+    },
+)
+
+# core.representation_characteristics
+df_representation_characteristics.to_sql(
+    name='representation_characteristics',
+    con=connection,
+    schema='testing',
+    if_exists='replace',
+    index=False,
+    dtype={
+        'id': UNIQUEIDENTIFIER,
+        'representation_id': UNIQUEIDENTIFIER,
+        'party': NVARCHAR(256),
+        'start_date': DATE,
+        'end_date': DATE,
+    },
+)
+
+# core.constituency
+df_constituency.to_sql(
+    name='constituency',
+    con=connection,
+    schema='testing',
+    if_exists='replace',
+    index=False,
+    dtype={
+        'id': UNIQUEIDENTIFIER,
+        'name': NVARCHAR(256),
+        'id_parliament': SMALLINT,
+    },
+)
