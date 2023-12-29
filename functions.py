@@ -5,6 +5,8 @@ from datetime import datetime
 from typing import Literal, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from ds_utils import log_operations as lo
 
@@ -12,9 +14,11 @@ from ds_utils import log_operations as lo
 def queryMembersSearchAPI(
     starting_number: int,
     headers: dict,
+    connection_retries: int = 5,
+    backoff_factor: float = 0.5,
     house: Literal[1, 2, None] = None,
     current_members: Literal[True, False, None] = True,
-    save_logs: bool = True
+    save_logs: bool = True,
 ) -> Optional[dict]:
     '''
     Requests details from the Members Search Parliament API
@@ -22,6 +26,8 @@ def queryMembersSearchAPI(
         Parameters:
             - starting_number (int): Starting result number
             - headers (str): Headers to use in the request
+            - connection_retries (int): Number of retries for connection errors
+            - backoff_factor (float): Backoff factor for connection errors
             - house (int): House to search (1 = Commons, 2 = Lords, None = both)
             - current_members (bool): Whether to return current members, former
             members or both (True = current, False = former, None = both)
@@ -52,10 +58,12 @@ def queryMembersSearchAPI(
         '&skip=' + str(starting_number) + '&take=20'
     )
 
-    r = requests.get(
-        url,
-        headers=headers
-    )
+    session = requests.Session()
+    retry = Retry(connect=connection_retries, backoff_factor=backoff_factor)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('https://', adapter)
+
+    r = session.get(url, headers=headers)
 
     if save_logs:
         lo.log_details(
@@ -134,6 +142,8 @@ def extractMembers(json: dict) -> list:
 def queryMembersHistoryAPI(
     member_id: int,
     headers: dict,
+    connection_retries: int = 5,
+    backoff_factor: float = 0.5,
     save_logs: bool = True
 ) -> Optional[dict]:
     '''
@@ -142,6 +152,8 @@ def queryMembersHistoryAPI(
         Parameters:
             - member_id (int): Member id number
             - headers (str): Headers to use in the request
+            - connection_retries (int): Number of retries for connection errors
+            - backoff_factor (float): Backoff factor for connection errors
             - save_logs (bool): Whether to save logs to file
 
         Returns:
@@ -159,10 +171,12 @@ def queryMembersHistoryAPI(
         str(member_id)
     )
 
-    r = requests.get(
-        url,
-        headers=headers
-    )
+    session = requests.Session()
+    retry = Retry(connect=connection_retries, backoff_factor=backoff_factor)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('https://', adapter)
+
+    r = session.get(url, headers=headers)
 
     if save_logs:
         lo.log_details(
