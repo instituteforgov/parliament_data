@@ -437,6 +437,8 @@ df_constituency = df_representation.loc[
     }
 )
 
+df_constituency = df_constituency[['id', 'id_parliament', 'name']]
+
 # Drop membershipFrom, membershipFromID columns
 df_representation.drop(
     columns=['membershipFrom', 'membershipFromID'],
@@ -586,6 +588,11 @@ assert df_representation_status.groupby('id_parliament').size().max() == 1, (
 )
 
 # Drop columns
+df_representation.drop(
+    columns=['id_parliament'],
+    inplace=True
+)
+
 df_representation_status = df_representation_status[[
     'representation_id', 'id_parliament', 'status', 'reason', 'start_date', 'end_date'
 ]]
