@@ -640,7 +640,6 @@ df_representation.to_sql(
     dtype={
         'id': UNIQUEIDENTIFIER,
         'person_id': UNIQUEIDENTIFIER,
-        'id_parliament': SMALLINT,
         'house': NVARCHAR(7),
         'type': NVARCHAR(256),
         'constituency_id': UNIQUEIDENTIFIER,
@@ -674,7 +673,7 @@ df_constituency.to_sql(
     index=False,
     dtype={
         'id': UNIQUEIDENTIFIER,
-        'name': NVARCHAR(256),
         'id_parliament': SMALLINT,
+        'name': NVARCHAR(256),
     },
 )
