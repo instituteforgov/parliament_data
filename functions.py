@@ -122,16 +122,26 @@ def extractMembers(json: dict) -> list:
             'is_mp': is_mp,
             'is_peer': is_peer,
             'is_current': is_current,
-            'party': member['value']['latestParty']['name'],
-            'constituency': member['value']['latestHouseMembership']['membershipFrom'],
+            'party': (
+                member['value']['latestParty']['name'] if
+                member['value']['latestParty'] else
+                None
+            ),
+            'constituency': (member['value']['latestHouseMembership']['membershipFrom']),
             'status': (
-                member['value']['latestHouseMembership']['membershipStatus']['statusDescription']
+                member['value']['latestHouseMembership']['membershipStatus']['statusDescription'] if
+                member['value']['latestHouseMembership']['membershipStatus'] else
+                None
             ),
             'statusNotes': (
-                member['value']['latestHouseMembership']['membershipStatus']['statusNotes']
+                member['value']['latestHouseMembership']['membershipStatus']['statusNotes'] if
+                member['value']['latestHouseMembership']['membershipStatus'] else
+                None
             ),
             'statusStartDate': (
-                member['value']['latestHouseMembership']['membershipStatus']['statusStartDate']
+                member['value']['latestHouseMembership']['membershipStatus']['statusStartDate'] if
+                member['value']['latestHouseMembership']['membershipStatus'] else
+                None
             ),
         })
         members.append(dict)
