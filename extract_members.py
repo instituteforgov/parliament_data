@@ -71,22 +71,15 @@ df_person_existing.rename(
 )
 
 # %%
-# READ IN TEMPORARY COPY OF DATA
-df_members = pd.read_pickle('temp/members.pkl')
-df_name_histories = pd.read_pickle('temp/name_histories.pkl')
-df_party_histories = pd.read_pickle('temp/party_histories.pkl')
-df_house_membership_histories = pd.read_pickle('temp/house_membership_histories.pkl')
-
-# %%
 # QUERY MEMBERS SEARCH API AND EXTRACT DATA TO DF
 # Make initial API query, to get total number of results
 members_search_results = queryMembersSearchAPI(
-    starting_number=0, headers=config['headers']
+    starting_number=0, headers=config['headers'], current_members=False
 )
 
 # Pull data from API
 members_search_results = [
-    queryMembersSearchAPI(starting_number=i * 20, headers=config['headers'])
+    queryMembersSearchAPI(starting_number=i * 20, headers=config['headers'], current_members=False)
     for i in range(0, math.ceil(members_search_results['totalResults'] / 20))
 ]
 
@@ -129,6 +122,13 @@ for record in members_history_results:
 df_name_histories = pd.DataFrame(name_histories)
 df_party_histories = pd.DataFrame(party_histories)
 df_house_membership_histories = pd.DataFrame(house_membership_histories)
+
+# %%
+# SAVE COPY OF DATA
+df_members.to_pickle('data/members.pkl')
+df_name_histories.to_pickle('data/name_histories.pkl')
+df_party_histories.to_pickle('data/party_histories.pkl')
+df_house_membership_histories.to_pickle('data/house_membership_histories.pkl')
 
 # %%
 # CARRY OUT GENERAL CLEANING
@@ -581,8 +581,9 @@ df_representation_status.loc[
 
 # Check that only one record per person
 # NB: This should be true, as the API only returns a member's latest status
-assert df_representation_status.groupby('id_parliament').size().max() == 1, 'More than one \
-    representation status record for at least one person'
+assert df_representation_status.groupby('id_parliament').size().max() == 1, (
+    'More than one representation status record for at least one person'
+)
 
 # Drop columns
 df_representation_status = df_representation_status[[
