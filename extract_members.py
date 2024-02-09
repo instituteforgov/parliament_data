@@ -616,7 +616,7 @@ df_representation_status.insert(
 # COMBINE EXISTING AND NEW DATA
 # df_person
 # NB: Favouring records with known start_date and end_date over NaTs
-df_temp = pd.concat(
+df_person = pd.concat(
     [df_person_existing, df_person], ignore_index=True
 ).sort_values(
     by=['id_parliament', 'start_date', 'end_date']
