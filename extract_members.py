@@ -72,10 +72,11 @@ df_person_existing = dbo.retry_sql_query(
 )
 
 # Rename parliament_id column in df_person_existing
-df_person_existing.rename(
-    columns={'parliament_id': 'id_parliament'},
-    inplace=True
-)
+if 'parliament_id' in df_person_existing.columns:
+    df_person_existing.rename(
+        columns={'parliament_id': 'id_parliament'},
+        inplace=True
+    )
 
 # %%
 # QUERY MEMBERS SEARCH API AND EXTRACT DATA TO DF
