@@ -9,7 +9,14 @@
         - API: Parliament Members Search API
         - API: Parliament Members History API
     Outputs
-        None
+        - pkl: data/members.pkl
+        - pkl: data/name_histories.pkl
+        - pkl: data/party_histories.pkl
+        - pkl: data/house_membership_histories.pkl
+        - SQL: core.person
+        - SQL: core.representation
+        - SQL: core.representation_characteristics
+        - SQL: core.constituency
     Parameters
         - General: Stored in config.yaml
         - Database connection: Stored in environment variables
