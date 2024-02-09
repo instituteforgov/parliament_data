@@ -127,7 +127,8 @@ def extractMembers(json: dict) -> list:
                 member['value']['latestParty'] else
                 None
             ),
-            'constituency': (member['value']['latestHouseMembership']['membershipFrom']),
+            'membershipFrom': (member['value']['latestHouseMembership']['membershipFrom']),
+            'membershipFromID': (member['value']['latestHouseMembership']['membershipFromId']),
             'status': (
                 member['value']['latestHouseMembership']['membershipStatus']['statusDescription'] if
                 member['value']['latestHouseMembership']['membershipStatus'] else
