@@ -1,6 +1,11 @@
 ---
 headers: {'accept': 'application/json'}
 
+peerage_type_renamings:
+  'Hereditary of 1st creation': 'Hereditaries of first creation'
+  'Hereds given LPs': 'Hereditaries given life peerages'
+  'Life peer (judicial)': 'Law life peer'
+
 constants:
 
   # Pre-2015 election dates

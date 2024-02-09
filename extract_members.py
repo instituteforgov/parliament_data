@@ -416,21 +416,32 @@ df_representation['house'] = df_representation['house'].map(
 )
 
 # Create peerage type column
-# NB: See technical_documentation.md for details
+# NB: The x['house'] == 'Lords' is required as some older Commons records
+# erroneously have membershipFromID <= 10
 df_representation.insert(
-    3, 'type',
+    3,
+    'type',
     df_representation.apply(
-        lambda x: x['membershipFrom'].capitalize() if x['membershipFromID'] <= 10 else pd.NA,
+        lambda x:
+        config['peerage_type_renamings'][x['membershipFrom']]
+            if x['membershipFrom'] in config['peerage_type_renamings'].keys()
+        else x['membershipFrom'].capitalize()
+            if x['house'] == 'Lords' and x['membershipFromID'] <= 10
+        else pd.NA,
         axis=1
     )
 )
 
 # Convert membershipFromID to constituency_id
 # Ref: https://stackoverflow.com/a/48975426/4659442
-df_representation.insert(
-    4, 'constituency_id',
-    df_representation.groupby('membershipFromID')['house'].transform(lambda x: uuid.uuid4())
-)
+df_representation.insert(4, 'constituency_id', pd.NA)
+df_representation.loc[
+    df_representation['house'] == 'Commons',
+    'constituency_id'
+] = df_representation.loc[
+    df_representation['house'] == 'Commons'
+].groupby('membershipFromID')['house'].transform(lambda x: uuid.uuid4())
+
 
 # Build constituency table, excluding rows relating to peerages
 df_constituency = df_representation.loc[
