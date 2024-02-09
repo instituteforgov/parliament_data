@@ -81,12 +81,12 @@ df_person_existing.rename(
 # QUERY MEMBERS SEARCH API AND EXTRACT DATA TO DF
 # Make initial API query, to get total number of results
 members_search_results = queryMembersSearchAPI(
-    starting_number=0, headers=config['headers'], current_members=False
+    starting_number=0, headers=config['headers'], current_members=None
 )
 
 # Pull data from API
 members_search_results = [
-    queryMembersSearchAPI(starting_number=i * 20, headers=config['headers'], current_members=False)
+    queryMembersSearchAPI(starting_number=i * 20, headers=config['headers'], current_members=None)
     for i in range(0, math.ceil(members_search_results['totalResults'] / 20))
 ]
 
@@ -483,7 +483,7 @@ df_representation = df_representation[[
 ]]
 
 # %%
-# Build representation history table
+# Build representation characteristics table
 
 # Create base table, including all possible combinations of representation and
 # party history
