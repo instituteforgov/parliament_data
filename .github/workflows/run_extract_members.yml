@@ -1,5 +1,5 @@
 ---
-name: Run extract_members.py on a schedule
+name: Run github_actions_test.py on a schedule
 
 on:
   workflow_dispatch:
