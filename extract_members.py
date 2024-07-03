@@ -9,16 +9,17 @@
         - API: Parliament Members Search API
         - API: Parliament Members History API
     Outputs
-        - pkl: data/members.pkl
-        - pkl: data/name_histories.pkl
-        - pkl: data/party_histories.pkl
-        - pkl: data/house_membership_histories.pkl
+        - pkl: data/<date>/members.pkl
+        - pkl: data/<date>/name_histories.pkl
+        - pkl: data/<date>/party_histories.pkl
+        - pkl: data/<date>/house_membership_histories.pkl
         - SQL: core.person
         - SQL: core.representation
         - SQL: core.representation_characteristics
         - SQL: core.constituency
     Parameters
         - General: Stored in config.yaml
+        - run_date: Run date
         - Database connection: Stored in environment variables
     Notes
         - See technical_documentation.md for details of issues of consistency of
@@ -44,6 +45,10 @@ from ds_utils import string_operations as so
 # READ IN CONFIG FILE
 with open('config.yaml', 'r') as f:
     config = yaml.safe_load(f)
+
+# %%
+# SET PARAMETERS
+run_date = '20240703'
 
 # %%
 # READ IN EXISTING D/B DATA
@@ -126,10 +131,10 @@ df_house_membership_histories = pd.DataFrame(house_membership_histories)
 
 # %%
 # SAVE COPY OF DATA
-df_members.to_pickle('data/members.pkl')
-df_name_histories.to_pickle('data/name_histories.pkl')
-df_party_histories.to_pickle('data/party_histories.pkl')
-df_house_membership_histories.to_pickle('data/house_membership_histories.pkl')
+df_members.to_pickle('data/' + run_date + '/members.pkl')
+df_name_histories.to_pickle('data/' + run_date + '/name_histories.pkl')
+df_party_histories.to_pickle('data/' + run_date + '/party_histories.pkl')
+df_house_membership_histories.to_pickle('data/' + run_date + '/house_membership_histories.pkl')
 
 # %%
 # CARRY OUT GENERAL CLEANING
@@ -643,6 +648,7 @@ df_person.to_sql(
         'id': UNIQUEIDENTIFIER,
         'id_parliament': SMALLINT,
         'name': NVARCHAR(256),
+        'short_name': NVARCHAR(256),
         'gender': NVARCHAR(1),
         'start_date': DATE,
         'end_date': DATE,
