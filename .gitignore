@@ -4,5 +4,6 @@
 /logs
 /temp
 
+extract_members_current.py
 temp*.py
 todo.txt
