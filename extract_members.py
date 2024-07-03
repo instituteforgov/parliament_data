@@ -67,7 +67,7 @@ df_person_existing = dbo.retry_sql_function(
     function=pd.read_sql,
     sql='''
         select *
-        from testing.person_2
+        from core.person
     ''',
     con=connection,
     parse_dates=['start_date', 'end_date'],
