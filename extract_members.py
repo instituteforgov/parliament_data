@@ -58,7 +58,7 @@ connection = dbo.connect_sql_db(
 )
 
 # core.person
-df_person_existing = dbo.retry_sql_query(
+df_person_existing = dbo.retry_sql_function(
     function=pd.read_sql,
     query='''
         select *
