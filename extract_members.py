@@ -32,7 +32,7 @@ import uuid
 
 from nameparser import HumanName
 import pandas as pd
-from sqlalchemy.dialects.mssql import DATE, NVARCHAR, SMALLINT, UNIQUEIDENTIFIER
+from sqlalchemy.dialects.mssql import BIT, DATE, NVARCHAR, SMALLINT, UNIQUEIDENTIFIER
 import yaml
 
 from functions import (
@@ -51,7 +51,7 @@ with open('config.yaml', 'r') as f:
 run_date = '20240703'
 
 # %%
-# READ IN EXISTING D/B DATA
+# CONNECT TO DATABASE
 connection = dbo.connect_sql_db(
     driver='pyodbc',
     driver_version=os.environ['odbc_driver'],
@@ -62,30 +62,16 @@ connection = dbo.connect_sql_db(
     username=os.environ['odbc_username'],
 )
 
-# core.person
-df_person_existing = dbo.retry_sql_function(
-    function=pd.read_sql,
-    sql='''
-        select *
-        from core.person
-    ''',
-    con=connection,
-    parse_dates=['start_date', 'end_date'],
-    dtype={
-        'id_parliament': 'Int64',
-    }
-)
-
 # %%
 # QUERY MEMBERS SEARCH API AND EXTRACT DATA TO DF
 # Make initial API query, to get total number of results
 members_search_results = queryMembersSearchAPI(
-    starting_number=0, headers=config['headers'], current_members=None
+    starting_number=0, headers=config['headers'], current_members=True
 )
 
-# Pull data from API
+# # Pull data from API
 members_search_results = [
-    queryMembersSearchAPI(starting_number=i * 20, headers=config['headers'], current_members=None)
+    queryMembersSearchAPI(starting_number=i * 20, headers=config['headers'], current_members=True)
     for i in range(0, math.ceil(members_search_results['totalResults'] / 20))
 ]
 
@@ -137,21 +123,39 @@ df_party_histories.to_pickle('data/' + run_date + '/party_histories.pkl')
 df_house_membership_histories.to_pickle('data/' + run_date + '/house_membership_histories.pkl')
 
 # %%
-# CARRY OUT GENERAL CLEANING
+# CLEAN AND AUGMENT DATA
 # Strip titles from names
-df_members['nameClean'] = df_members['nameDisplayAs'].apply(
+df_members['name'] = df_members['nameDisplayAs'].apply(
     lambda x: so.strip_name_title(x, exclude_peerage=True)
 )
 
-df_name_histories['nameClean'] = df_name_histories['nameDisplayAs'].apply(
+df_name_histories['name'] = df_name_histories['nameDisplayAs'].apply(
     lambda x: so.strip_name_title(x, exclude_peerage=True)
 )
 
 # Remove commas and full stops from names
 # NB: This fixes occasional issues such as 'Angela, E. Smith'
-df_members.loc[:, 'nameClean'] = df_members['nameClean'].str.replace(',', '').str.replace('.', '')
-df_name_histories.loc[:, 'nameClean'] = (
-    df_name_histories['nameClean'].str.replace(',', '').str.replace('.', '')
+df_members.loc[:, 'name'] = df_members['name'].str.replace(',', '').str.replace('.', '')
+df_name_histories.loc[:, 'name'] = (
+    df_name_histories['name'].str.replace(',', '').str.replace('.', '')
+)
+
+# Drop nameDisplayAs columns
+df_members.drop(columns='nameDisplayAs', inplace=True)
+df_name_histories.drop(columns='nameDisplayAs', inplace=True)
+
+# Add short_name columns
+df_members['short_name'] = df_members['name'].apply(
+    lambda x:
+        so.split_title_names(x)[1] if ' of ' in x and so.split_title_names(x)[1] else
+        so.split_title_names(x)[2] if ' of ' in x else
+        HumanName(x).last or pd.NA
+)
+df_name_histories['short_name'] = df_name_histories['name'].apply(
+    lambda x:
+        so.split_title_names(x)[1] if ' of ' in x and so.split_title_names(x)[1] else
+        so.split_title_names(x)[2] if ' of ' in x else
+        HumanName(x).last or pd.NA
 )
 
 # Convert date strings to datetimes
@@ -167,6 +171,96 @@ df_house_membership_histories['endDate'] = pd.to_datetime(
     df_house_membership_histories['endDate']
 )
 
+# Drop statusStartDate column
+df_members.drop(columns='statusStartDate', inplace=True)
+
+# Rename columns
+df_members.rename(columns={'id': 'id_parliament'}, inplace=True)
+df_members.rename(columns={'membershipFromID': 'constituency_id'}, inplace=True)
+df_members.rename(columns={'membershipFrom': 'constituency'}, inplace=True)
+
+df_name_histories.rename(columns={'id': 'id_parliament'}, inplace=True)
+df_name_histories.rename(columns={'startDate': 'start_date'}, inplace=True)
+df_name_histories.rename(columns={'endDate': 'end_date'}, inplace=True)
+
+df_party_histories.rename(columns={'id': 'id_parliament'}, inplace=True)
+df_party_histories.rename(columns={'startDate': 'start_date'}, inplace=True)
+df_party_histories.rename(columns={'endDate': 'end_date'}, inplace=True)
+
+df_house_membership_histories.rename(columns={'id': 'id_parliament'}, inplace=True)
+df_house_membership_histories.rename(
+    columns={'membershipFromID': 'constituency_id_parliament'}, inplace=True
+)
+df_house_membership_histories.rename(columns={'membershipFrom': 'constituency_name'}, inplace=True)
+df_house_membership_histories.rename(columns={'startDate': 'start_date'}, inplace=True)
+df_house_membership_histories.rename(columns={'endDate': 'end_date'}, inplace=True)
+
+# Augment house membership histories data
+
+# 1. Add UUID
+df_house_membership_histories['id'] = [uuid.uuid4() for _ in range(
+    len(df_house_membership_histories)
+)]
+
+# 2. Code house to Commons, Lords
+df_house_membership_histories['house'] = df_house_membership_histories['house'].map(
+    lambda x: 'Commons' if x == 1 else 'Lords'
+)
+
+# 3. Create peerage type column
+# NB: The x['house'] == 'Lords' is required as some older Commons records
+# erroneously have constituency_id_parliament <= 10
+df_house_membership_histories.insert(
+    3,
+    'type',
+    df_house_membership_histories.apply(
+        lambda x:
+        config['peerage_type_renamings'][x['constituency_name']]
+            if x['constituency_name'] in config['peerage_type_renamings'].keys()
+        else x['constituency_name'].capitalize()
+            if x['house'] == 'Lords' and x['constituency_id_parliament'] <= 10
+        else pd.NA,
+        axis=1
+    )
+)
+
+# 4. Set constituency_id_parliament, constituency_name to NA for Lords records
+df_house_membership_histories.loc[
+    df_house_membership_histories['house'] == 'Lords', 'constituency_id_parliament'
+] = pd.NA
+df_house_membership_histories.loc[
+    df_house_membership_histories['house'] == 'Lords', 'constituency_name'
+] = pd.NA
+
+# 5. Create constituency_id column
+# Ref: https://stackoverflow.com/a/48975426/4659442
+df_house_membership_histories.loc[
+    df_house_membership_histories['house'] == 'Commons',
+    'constituency_id'
+] = df_house_membership_histories.loc[
+    df_house_membership_histories['house'] == 'Commons'
+].groupby('constituency_id_parliament')['house'].transform(lambda x: uuid.uuid4())
+
+# Reorder columns
+df_members = df_members[[
+    'id_parliament', 'name', 'short_name',
+    'gender', 'is_mp', 'is_peer', 'is_current',
+    'party', 'constituency_id', 'constituency'
+]]
+
+df_name_histories = df_name_histories[[
+    'id_parliament', 'name', 'short_name', 'start_date', 'end_date'
+]]
+
+df_party_histories = df_party_histories[[
+    'id_parliament', 'party', 'start_date', 'end_date'
+]]
+
+df_house_membership_histories = df_house_membership_histories[[
+    'id', 'id_parliament', 'house', 'type', 'constituency_id',
+    'constituency_id_parliament', 'constituency_name', 'start_date', 'end_date'
+]]
+
 # %%
 # FIX CONSISTENCY OF RECORD STRUCTURE
 # 1. Set party history and membership history end dates to election date rather
@@ -174,101 +268,16 @@ df_house_membership_histories['endDate'] = pd.to_datetime(
 # NB: This makes May 2015-onwards data consistent with data before this point
 preelection_period_to_election_date = config['mappings']['preelection_period_to_election_date']
 
-df_party_histories['endDate'] = df_party_histories['endDate'].map(
+df_party_histories['end_date'] = df_party_histories['end_date'].map(
     lambda x: preelection_period_to_election_date.get(x, x)
 )
-df_house_membership_histories['endDate'] = df_house_membership_histories['endDate'].map(
+df_house_membership_histories['end_date'] = df_house_membership_histories['end_date'].map(
     lambda x: preelection_period_to_election_date.get(x, x)
 )
 
 # %%
-# 2. Break MPs' pre-2015 party history records into multiple records where they span
-# multiple parliaments
-# NB: This makes pre-2015 data consistent with data from 2015 onwards
-
-# Identify first house membership history record where someone is in the Lords
-df_lords_membership_start_dates = df_house_membership_histories.loc[
-    df_house_membership_histories['house'] == 2
-].groupby('id').agg({
-    'startDate': 'min'
-}).reset_index()
-
-# Add house to party history records
-df_party_histories['house'] = df_party_histories.merge(
-    df_lords_membership_start_dates, on='id', how='left'
-).apply(
-    lambda x: 2 if x['startDate_x'] >= x['startDate_y'] else 1,
-    axis=1
-)
-
-# Create dataframe of pre-2015, MP party history records
-df_party_histories_mps_pre2015 = df_party_histories.loc[
-    (df_party_histories['endDate'] <= pd.to_datetime('2015-05-07T00:00:00')) &
-    (df_party_histories['house'] == 1)
-].copy()
-
-# Create date_range for each record
-# NB: Stopping before endDate so that in the subsequent steps we don't add a record
-# for the period beginning when the MP left the Commons
-df_party_histories_mps_pre2015.loc[
-    :, 'date_range'
-] = df_party_histories_mps_pre2015.apply(
-    lambda x:
-        pd.date_range(
-            start=x['startDate'],
-            end=x['endDate'] - pd.Timedelta(1, unit='D'),
-            freq='D'
-        ).tolist(),
-    axis=1
-)
-
-# Delete items in date_range that are not either the first item or an election date
-pre2015_election_dates = config['constants']['pre2015_election_dates']
-
-df_party_histories_mps_pre2015.loc[
-    :, 'date_range'
-] = df_party_histories_mps_pre2015.apply(
-    lambda x:
-        [
-            y for y in x['date_range']
-            if y == x['date_range'][0] or y in pre2015_election_dates
-        ],
-    axis=1
-)
-
-# Explode date_range and rename as startDate
-df_party_histories_mps_pre2015 = df_party_histories_mps_pre2015.explode('date_range')
-df_party_histories_mps_pre2015['startDate'] = df_party_histories_mps_pre2015['date_range']
-df_party_histories_mps_pre2015.drop(columns=['date_range'], inplace=True)
-
-# Set endDate as the first date from pre2015_election_dates after startDate, or
-# 2015-05-07T00:00:00 if there is no such date
-df_party_histories_mps_pre2015.loc[
-    :, 'endDate'
-] = df_party_histories_mps_pre2015.apply(
-    lambda x:
-        [
-            y for y in pre2015_election_dates + [pd.to_datetime('2015-05-07T00:00:00')]
-            if y > x['startDate']
-        ][0],
-    axis=1
-)
-
-# Append pre-2015 MP party history records to other records
-df_party_histories = pd.concat(
-    [
-        df_party_histories_mps_pre2015,
-        df_party_histories.loc[
-            (df_party_histories['endDate'] > pd.to_datetime('2015-05-07T00:00:00')) |
-            (pd.isna(df_party_histories['endDate'])) |
-            (df_party_histories['house'] == 2)
-        ]
-    ]
-)
-
-# %%
-# 3. Collapse name history records taking earliest startDate and latest endDate
-# for a given id and nameClean
+# 2. Collapse name history records taking earliest start_date and latest end_date
+# for a given id and name
 # NB: These arise where a. another form of someone's name (e.g. nameAddressAs) has changed
 # in the parliament data even where nameDisplayAs hasn't, b. where our cleaning of names
 # has created additional redundant records
@@ -277,421 +286,68 @@ df_party_histories = pd.concat(
 # something is ongoing. Ref: https://stackoverflow.com/a/71299818/4659442
 # NB: In some cases parliament data erroneously contains near-duplicate name records (e.g.
 # Mary Kelly Foy, 4753) - these aren't fixed here and need to be fixed downstream in SQL
-df_name_histories = df_name_histories.groupby(['id', 'nameClean']).agg({
-    'startDate': 'min',
-    'endDate': 'max'
+df_name_histories = df_name_histories.groupby(['id_parliament', 'name', 'short_name']).agg({
+    'start_date': 'min',
+    'end_date': 'max'
 }).mask(
-    df_name_histories[['startDate', 'endDate']].isna().groupby([
-        df_name_histories['id'], df_name_histories['nameClean']
+    df_name_histories[['start_date', 'end_date']].isna().groupby([
+        df_name_histories['id_parliament'], df_name_histories['name']
     ]).max()
 ).reset_index()
 
 # %%
-# BUILD FINAL DATAFRAMES
-# Build person table
-
-# Create base table
-df_person = df_name_histories.merge(
-    df_members[['id', 'gender']],
-    on='id',
-    how='left',
-).rename(
-    columns={
-        'id': 'id_parliament',
-        'nameClean': 'name',
-        'startDate': 'start_date',
-        'endDate': 'end_date',
-    }
-)[['id_parliament', 'name', 'gender', 'start_date', 'end_date']]
-
-# Create short_name column
-# Where name contains 'of', apply split_title_names(), taking last name where it exists
-# and place where it doesn't (e.g. Minto for Earl of Minto), otherwise apply HumanName(),
-# taking last name
-df_person['short_name'] = df_person['name'].apply(
-    lambda x:
-        so.split_title_names(x)[1] if ' of ' in x and so.split_title_names(x)[1] else
-        so.split_title_names(x)[2] if ' of ' in x else
-        HumanName(x).last or pd.NA
-)
-
-# Set start_date/end_date to NaT where there isn't a corresponding end_date/start_date
-# NB: In many cases these will be dates of birth and dates of death, which we aren't interested
-# in. In the case of Lords, a start_date will in many cases be a date of ennoblement, which would
-# correspond to a name change - but in the case of newly elected hereditary peers it may not be
-df_person['start_date_matches_end_date'] = df_person.apply(
-    lambda x:
-        not df_person.loc[
-            (x['id_parliament'] == df_person['id_parliament']) &
-            (x['start_date'] == df_person['end_date'])
-        ].empty,
-    axis=1
-)
-
-df_person['end_date_matches_start_date'] = df_person.apply(
-    lambda x:
-        not df_person.loc[
-            (x['id_parliament'] == df_person['id_parliament']) &
-            (x['end_date'] == df_person['start_date'])
-        ].empty,
-    axis=1
-)
-
-df_person.loc[
-    ~df_person['start_date_matches_end_date'],
-    'start_date'
-] = pd.NA
-
-df_person.loc[
-    ~df_person['end_date_matches_start_date'],
-    'end_date'
-] = pd.NA
-
-df_person.drop(
-    columns=['start_date_matches_end_date', 'end_date_matches_start_date'],
-    inplace=True
-)
-
-# Pull in UUIDs from existing data where they exist
-df_person = df_person.merge(
-    df_person_existing.loc[
-        df_person_existing['id_parliament'].notna()
-    ][['id', 'id_parliament']].drop_duplicates(),
-    how='left',
-    on=['id_parliament'],
-    validate='many_to_one'
-)
-
-# Add UUIDs for people not in existing data
-# NB: This adds the same ID for people with the same id_parliament
-# Ref: https://stackoverflow.com/a/48975426/4659442
-df_person.loc[
-    df_person['id'].isna(),
-    'id'
-] = df_person.loc[
-    df_person['id'].isna()
-].groupby('id_parliament')['id_parliament'].transform(lambda x: uuid.uuid4())
-
-# Reorder columns
-df_person = df_person[[
-    'id', 'id_parliament', 'name', 'short_name', 'gender', 'start_date', 'end_date'
-]]
-
-# %%
-# Build representation, constituency tables
-
-# Create base table
-df_representation = df_house_membership_histories[[
-    'id', 'house', 'membershipFrom', 'membershipFromID', 'startDate', 'endDate'
-]].rename(
-    columns={
-        'id': 'id_parliament',
-        'startDate': 'start_date',
-        'endDate': 'end_date',
-    }
-)
-
-# Add UUID
-# NB: Here we want it to be unique for each row
-df_representation.insert(0, 'id', [uuid.uuid4() for _ in range(len(df_representation))])
-
-# Add person_id
-df_representation = df_representation.merge(
-    df_person[['id', 'id_parliament']].drop_duplicates(),
-    on='id_parliament',
-    how='inner',
-    suffixes=(None, '_y'),
-    validate='many_to_one'
-).rename(
-    columns={
-        'id_y': 'person_id'
-    }
-)
-
-# Code house to Commons, Lords
-df_representation['house'] = df_representation['house'].map(
-    lambda x: 'Commons' if x == 1 else 'Lords'
-)
-
-# Create peerage type column
-# NB: The x['house'] == 'Lords' is required as some older Commons records
-# erroneously have membershipFromID <= 10
-df_representation.insert(
-    3,
-    'type',
-    df_representation.apply(
-        lambda x:
-        config['peerage_type_renamings'][x['membershipFrom']]
-            if x['membershipFrom'] in config['peerage_type_renamings'].keys()
-        else x['membershipFrom'].capitalize()
-            if x['house'] == 'Lords' and x['membershipFromID'] <= 10
-        else pd.NA,
-        axis=1
-    )
-)
-
-# Convert membershipFromID to constituency_id
-# Ref: https://stackoverflow.com/a/48975426/4659442
-df_representation.insert(4, 'constituency_id', pd.NA)
-df_representation.loc[
-    df_representation['house'] == 'Commons',
-    'constituency_id'
-] = df_representation.loc[
-    df_representation['house'] == 'Commons'
-].groupby('membershipFromID')['house'].transform(lambda x: uuid.uuid4())
-
-
-# Build constituency table, excluding rows relating to peerages
-df_constituency = df_representation.loc[
-    df_representation['type'].isna()
-][[
-    'constituency_id', 'membershipFrom', 'membershipFromID'
-]].drop_duplicates().rename(
-    columns={
-        'constituency_id': 'id',
-        'membershipFrom': 'name',
-        'membershipFromID': 'id_parliament'
-    }
-)
-
-df_constituency = df_constituency[['id', 'id_parliament', 'name']]
-
-# Drop membershipFrom, membershipFromID columns
-df_representation.drop(
-    columns=['membershipFrom', 'membershipFromID'],
-    inplace=True
-)
-
-# Drop rows where start_date and end_date is NaT and the individual has a record
-# where start_date is not NaT and end_date is NaT
-# NB: These appear to be erroneous/near-duplicate records for hereditary peers
-# NB: This leaves in place a small number of records where start_date and end_date
-# are NaT and the individual doesn't have a record where end_date is NaT - these
-# appear to be erroneous records for some excepted hereditary peers that are missing
-# a start_date. See technical_documentation.md for details
-
-# Drop rows
-df_representation.drop(
-    df_representation.loc[
-        (df_representation['start_date'].isna()) &
-        (df_representation['end_date'].isna()) &
-        (
-            df_representation['id_parliament'].isin(
-                df_representation.loc[
-                    (df_representation['start_date'].notna()) &
-                    (df_representation['end_date'].isna())
-                ]['id_parliament']
-            )
-        )
-    ].index,
-    inplace=True
-)
-
-# Reorder columns
-df_representation = df_representation[[
-    'id', 'person_id', 'id_parliament', 'house', 'type', 'constituency_id', 'start_date', 'end_date'
-]]
-
-# %%
-# Build representation characteristics table
-
-# Create base table, including all possible combinations of representation and
-# party history
-df_representation_characteristics = df_representation.merge(
-    df_party_histories,
-    left_on='id_parliament',
-    right_on='id',
-    how='left',
-    suffixes=('_r', '_ph'),
-).rename(
-    columns={
-        'id_r': 'representation_id',
-
-    }
-)
-
-# Restrict to records where representation characteristics period falls
-# within representation period
-# NB: Here startDate is start date from df_party_histories
-df_representation_characteristics = df_representation_characteristics[
-    (
-        df_representation_characteristics['start_date'] <=
-        df_representation_characteristics['startDate']
-    ) &
-    (
-        (pd.isna(df_representation_characteristics['end_date'])) |
-        (
-            df_representation_characteristics['end_date'] >
-            df_representation_characteristics['startDate']
-        )
-    )
-]
-
-# Drop and rename columns
-df_representation_characteristics = df_representation_characteristics[[
-    'representation_id', 'party', 'startDate', 'endDate'
-]].rename(
-    columns={
-        'startDate': 'start_date',
-        'endDate': 'end_date',
-    }
-)
-
-# Add UUID
-# NB: Here we want it to be unique for each row
-df_representation_characteristics.insert(
-    0, 'id',
-    [uuid.uuid4() for _ in range(len(df_representation_characteristics))]
-)
-
-# %%
-# Build representation status table
-
-# Create base table
-df_representation_status = df_members[['id', 'status', 'statusNotes', 'statusStartDate']].rename(
-    columns={
-        'id': 'id_parliament',
-        'status': 'status',
-        'statusNotes': 'reason',
-        'statusStartDate': 'start_date',
-    }
-)
-
-# Recode status and make sentence case
-df_representation_status['status'] = df_representation_status['status'].apply(
-    lambda x: x.replace('Current Member', 'Active').capitalize() if pd.notna(x) else x
-)
-
-# Make notes sentence case
-df_representation_status['reason'] = df_representation_status.apply(
-    lambda x:
-        None if x['reason'] == x['status'] else
-        x['reason'].capitalize() if pd.notna(x['reason']) else
-        x['reason'],
-    axis=1
-)
-
-# Add NaT end date
-df_representation_status['end_date'] = pd.NA
-
-# Add representation_id
-# NB: Only using df_representation records where end_date is NaT as we only
-# have current representation statuses
-df_representation_status = df_representation_status.merge(
-    df_representation.loc[df_representation['end_date'].isna()],
-    on='id_parliament',
-    how='left',
-    suffixes=('_rs', '_r')
-).rename(
-    columns={
-        'id': 'representation_id',
-        'start_date_rs': 'start_date',
-        'end_date_rs': 'end_date',
-    }
-)
-
-# Set status start date to start date of representation where status start date is before
-# start date of representation
-# NB: There are some records where this isn't the case. See technical_documentation.md for details
-df_representation_status.loc[
-    df_representation_status['start_date'] < df_representation_status['start_date_r'],
-    'start_date'
-] = df_representation_status['start_date_r']
-
-# Check that only one record per person
-# NB: This should be true, as the API only returns a member's latest status
-assert df_representation_status.groupby('id_parliament').size().max() == 1, (
-    'More than one representation status record for at least one person'
-)
-
-# Drop columns
-df_representation.drop(
-    columns=['id_parliament'],
-    inplace=True
-)
-
-df_representation_status = df_representation_status[[
-    'representation_id', 'id_parliament', 'status', 'reason', 'start_date', 'end_date'
-]]
-
-# Add UUID
-# NB: Here we want it to be unique for each row
-df_representation_status.insert(
-    0, 'id',
-    [uuid.uuid4() for _ in range(len(df_representation_status))]
-)
-
-# %%
-# COMBINE EXISTING AND NEW DATA
-# df_person
-# NB: Favouring records with known start_date and end_date over NaTs
-df_person = pd.concat(
-    [df_person_existing, df_person], ignore_index=True
-).sort_values(
-    by=['id_parliament', 'start_date', 'end_date']
-).drop_duplicates(
-    subset=['id', 'id_parliament', 'name', 'gender'],
-    keep='first',
-    ignore_index=True
-)
-
-# %%
 # SAVE DATA TO D/B
-# core.person
-df_person.to_sql(
-    name='person',
+df_members.to_sql(
+    name='parliament_members',
     con=connection,
     schema='testing',
     if_exists='replace',
     index=False,
     dtype={
-        'id': UNIQUEIDENTIFIER,
         'id_parliament': SMALLINT,
         'name': NVARCHAR(256),
         'short_name': NVARCHAR(256),
         'gender': NVARCHAR(1),
-        'start_date': DATE,
-        'end_date': DATE,
+        'is_mp': BIT,
+        'is_peer': BIT,
+        'is_current': BIT,
+        'party': NVARCHAR(256),
+        'constituency_id': SMALLINT,
+        'constituency': NVARCHAR(256)
     },
 )
 
-# core.representation
-df_representation.to_sql(
-    name='representation',
+df_name_histories.to_sql(
+    name='parliament_name_histories',
     con=connection,
     schema='testing',
     if_exists='replace',
     index=False,
     dtype={
-        'id': UNIQUEIDENTIFIER,
-        'person_id': UNIQUEIDENTIFIER,
-        'house': NVARCHAR(7),
-        'type': NVARCHAR(256),
-        'constituency_id': UNIQUEIDENTIFIER,
+        'id_parliament': SMALLINT,
+        'name': NVARCHAR(256),
+        'short_name': NVARCHAR(256),
         'start_date': DATE,
         'end_date': DATE,
     },
 )
 
-# core.representation_characteristics
-df_representation_characteristics.to_sql(
-    name='representation_characteristics',
+df_party_histories.to_sql(
+    name='parliament_party_histories',
     con=connection,
     schema='testing',
     if_exists='replace',
     index=False,
     dtype={
-        'id': UNIQUEIDENTIFIER,
-        'representation_id': UNIQUEIDENTIFIER,
+        'id_parliament': SMALLINT,
         'party': NVARCHAR(256),
         'start_date': DATE,
         'end_date': DATE,
     },
 )
 
-# core.constituency
-df_constituency.to_sql(
-    name='constituency',
+df_house_membership_histories.to_sql(
+    name='parliament_house_membership_histories',
     con=connection,
     schema='testing',
     if_exists='replace',
@@ -699,6 +355,14 @@ df_constituency.to_sql(
     dtype={
         'id': UNIQUEIDENTIFIER,
         'id_parliament': SMALLINT,
-        'name': NVARCHAR(256),
+        'house': NVARCHAR(32),
+        'type': NVARCHAR(32),
+        'constituency_id': UNIQUEIDENTIFIER,
+        'constituency_id_parliament': SMALLINT,
+        'constituency_name': NVARCHAR(256),
+        'start_date': DATE,
+        'end_date': DATE
     },
 )
+
+# %%
