@@ -32,7 +32,7 @@ import uuid
 
 from nameparser import HumanName
 import pandas as pd
-from sqlalchemy.dialects.mssql import BIT, DATE, NVARCHAR, SMALLINT, UNIQUEIDENTIFIER
+from sqlalchemy.dialects.mssql import DATE, NVARCHAR, SMALLINT, UNIQUEIDENTIFIER
 import yaml
 
 from functions import (
@@ -304,16 +304,13 @@ df_members.to_sql(
     if_exists='replace',
     index=False,
     dtype={
+        'id': UNIQUEIDENTIFIER,
         'id_parliament': SMALLINT,
         'name': NVARCHAR(256),
         'short_name': NVARCHAR(256),
         'gender': NVARCHAR(1),
-        'is_mp': BIT,
-        'is_peer': BIT,
-        'is_current': BIT,
-        'party': NVARCHAR(256),
-        'constituency_id': SMALLINT,
-        'constituency': NVARCHAR(256)
+        'start_date': DATE,
+        'end_date': DATE,
     },
 )
 
