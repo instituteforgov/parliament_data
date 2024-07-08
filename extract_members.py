@@ -197,7 +197,16 @@ df_house_membership_histories.rename(columns={'endDate': 'end_date'}, inplace=Tr
 
 # Augment house membership histories data
 
-# 1. Add UUID
+# 1. Add UUIDs
+df_members['id'] = [uuid.uuid4() for _ in range(
+    len(df_members)
+)]
+df_name_histories['id'] = [uuid.uuid4() for _ in range(
+    len(df_name_histories)
+)]
+df_party_histories['id'] = [uuid.uuid4() for _ in range(
+    len(df_party_histories)
+)]
 df_house_membership_histories['id'] = [uuid.uuid4() for _ in range(
     len(df_house_membership_histories)
 )]
@@ -243,17 +252,17 @@ df_house_membership_histories.loc[
 
 # Reorder columns
 df_members = df_members[[
-    'id_parliament', 'name', 'short_name',
+    'id', 'id_parliament', 'name', 'short_name',
     'gender', 'is_mp', 'is_peer', 'is_current',
     'party', 'constituency_id', 'constituency'
 ]]
 
 df_name_histories = df_name_histories[[
-    'id_parliament', 'name', 'short_name', 'start_date', 'end_date'
+    'id', 'id_parliament', 'name', 'short_name', 'start_date', 'end_date'
 ]]
 
 df_party_histories = df_party_histories[[
-    'id_parliament', 'party', 'start_date', 'end_date'
+    'id', 'id_parliament', 'party', 'start_date', 'end_date'
 ]]
 
 df_house_membership_histories = df_house_membership_histories[[
@@ -321,6 +330,7 @@ df_name_histories.to_sql(
     if_exists='replace',
     index=False,
     dtype={
+        'id': UNIQUEIDENTIFIER,
         'id_parliament': SMALLINT,
         'name': NVARCHAR(256),
         'short_name': NVARCHAR(256),
@@ -336,6 +346,7 @@ df_party_histories.to_sql(
     if_exists='replace',
     index=False,
     dtype={
+        'id': UNIQUEIDENTIFIER,
         'id_parliament': SMALLINT,
         'party': NVARCHAR(256),
         'start_date': DATE,
