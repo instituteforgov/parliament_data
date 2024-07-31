@@ -48,7 +48,7 @@ with open('config.yaml', 'r') as f:
 
 # %%
 # SET PARAMETERS
-run_date = '20240709'
+run_date = '20240731'
 
 # %%
 # CONNECT TO DATABASE
