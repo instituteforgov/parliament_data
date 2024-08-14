@@ -314,7 +314,7 @@ df_name_histories = df_name_histories.groupby(['id_parliament', 'name', 'short_n
 df_members.to_sql(
     name='parliament_members',
     con=connection,
-    schema='testing',
+    schema='source',
     if_exists='replace',
     index=False,
     dtype={
@@ -331,7 +331,7 @@ df_members.to_sql(
 df_name_histories.to_sql(
     name='parliament_name_histories',
     con=connection,
-    schema='testing',
+    schema='source',
     if_exists='replace',
     index=False,
     dtype={
@@ -347,7 +347,7 @@ df_name_histories.to_sql(
 df_party_histories.to_sql(
     name='parliament_party_histories',
     con=connection,
-    schema='testing',
+    schema='source',
     if_exists='replace',
     index=False,
     dtype={
@@ -362,7 +362,7 @@ df_party_histories.to_sql(
 df_house_membership_histories.to_sql(
     name='parliament_house_membership_histories',
     con=connection,
-    schema='testing',
+    schema='source',
     if_exists='replace',
     index=False,
     dtype={
